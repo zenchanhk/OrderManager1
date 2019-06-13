@@ -1,0 +1,349 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{8E8978DA-DD28-4878-A561-0895F7E1B7D9}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>AmiBroker.Controllers</RootNamespace>
+    <AssemblyName>OrderManager</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <WarningLevel>4</WarningLevel>
+    <Deterministic>true</Deterministic>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>
+    </StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AmiBroker.PlugInHost">
+      <HintPath>C:\Program Files\AmiBroker\.NET for AmiBroker\Assemblies\AmiBroker.PlugInHost.dll</HintPath>
+    </Reference>
+    <Reference Include="AmiBroker.Utils">
+      <HintPath>C:\Program Files\AmiBroker\.NET for AmiBroker\Assemblies\AmiBroker.Utils.dll</HintPath>
+    </Reference>
+    <Reference Include="Easy.MessageHub, Version=3.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Easy.MessageHub.3.4.0\lib\net35\Easy.MessageHub.dll</HintPath>
+    </Reference>
+    <Reference Include="FastMember.Signed, Version=1.4.1.0, Culture=neutral, PublicKeyToken=9e8f22703bef9a29, processorArchitecture=MSIL">
+      <HintPath>..\packages\FastMember.Signed.1.4.1\lib\net461\FastMember.Signed.dll</HintPath>
+    </Reference>
+    <Reference Include="FontAwesome.Sharp, Version=5.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\FontAwesome.Sharp.5.2.0\lib\net40\FontAwesome.Sharp.dll</HintPath>
+    </Reference>
+    <Reference Include="GrayscaleEffect">
+      <HintPath>..\packages\GrayscaleEffect.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
+      <HintPath>..\packages\Mono.Data.Sqlite.1.0.61\lib\net40\Mono.Data.Sqlite.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="ParallelExtensionsExtras, Version=1.2.3.0, Culture=neutral, PublicKeyToken=665f4d61f853b5a9, processorArchitecture=MSIL">
+      <HintPath>..\packages\ParallelExtensionsExtras.1.2.0.0\lib\net40\ParallelExtensionsExtras.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationFramework.Aero2" />
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Interactivity, Version=4.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Expression.Blend.Sdk.1.0.2\lib\net45\System.Windows.Interactivity.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xaml">
+      <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="Xceed.Wpf.AvalonDock">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Aero">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Aero.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Metro">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Metro.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.VS2010">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.VS2010.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.Toolkit">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.Toolkit.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ABMethods.cs" />
+    <Compile Include="Controllers\Helper\BcpBinding.cs" />
+    <Compile Include="Controllers\Helper\BindableParameter.cs" />
+    <Compile Include="Controllers\Helper\Helper.cs" />
+    <Compile Include="Controllers\Helper\ImageHelper.cs" />
+    <Compile Include="Controllers\Helper\JsonHelper.cs" />
+    <Compile Include="Controllers\Helper\NotifyPropertyChangedBase.cs" />
+    <Compile Include="Controllers\Helper\SiteHelper.cs" />
+    <Compile Include="Controllers\Helper\UITreeHelper.cs" />
+    <Compile Include="Controllers\Helper\UpdateOSTime.cs" />
+    <Compile Include="Controllers\UI\Command.cs" />
+    <Compile Include="Controllers\UI\Controls\CachedContentControl.cs" />
+    <Compile Include="Controllers\UI\Controls\DateTimeUpDown\AutoGreyImage.cs" />
+    <Compile Include="Controllers\UI\Controls\DateTimeUpDown\DateTimeUpDown.cs" />
+    <Compile Include="Controllers\UI\Controls\DropDownButton.cs" />
+    <Compile Include="Controllers\UI\Controls\SlippageListView.xaml.cs">
+      <DependentUpon>SlippageListView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Controls\NumericUpDown.cs" />
+    <Compile Include="Controllers\UI\Controls\ObjectInTreeView.xaml.cs">
+      <DependentUpon>ObjectInTreeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Dialogs\AssignToStrategy.xaml.cs">
+      <DependentUpon>AssignToStrategy.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Dialogs\SaveLoadTemplate.xaml.cs">
+      <DependentUpon>SaveLoadTemplate.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\MainViewModel.cs" />
+    <Compile Include="Controllers\UI\Services\CustomFilterService.cs" />
+    <Compile Include="Controllers\UI\Services\DefaultGroupService.cs" />
+    <Compile Include="Controllers\UI\Tabs\AccoutTabView.xaml.cs">
+      <DependentUpon>AccoutTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\ExecutionTabView.xaml.cs">
+      <DependentUpon>ExecutionTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\LogTabView.xaml.cs">
+      <DependentUpon>LogTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\MessageTabView.xaml.cs">
+      <DependentUpon>MessageTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\MinorLogTabView.xaml.cs">
+      <DependentUpon>MinorLogTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\PendingOrderTabView.xaml.cs">
+      <DependentUpon>PendingOrderTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\PortfolioTabView.xaml.cs">
+      <DependentUpon>PortfolioTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\ScriptTabView.xaml.cs">
+      <DependentUpon>ScriptTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OrderManager.cs" />
+    <Compile Include="OrderManager\Contract\ContractBase.cs" />
+    <Compile Include="OrderManager\OMAfl.cs" />
+    <Compile Include="OrderManager\OMClasses.cs" />
+    <Compile Include="OrderManager\OrderType\BaseOrderType.cs" />
+    <Compile Include="OrderManager\OrderType\FTOrderType.cs" />
+    <Compile Include="OrderManager\OrderType\IBOrderTypes.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="Controllers\UI\Dialogs\AccountConfig.xaml.cs">
+      <DependentUpon>AccountConfig.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Converter.cs" />
+    <Compile Include="Controllers\UI\DataContextSpy.cs" />
+    <Compile Include="Controllers\UI\GridViewRowPresenterWithGridLines.cs" />
+    <Compile Include="Controllers\UI\Main.xaml.cs">
+      <DependentUpon>Main.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\MaterialIcons.cs" />
+    <Compile Include="Controllers\UI\Dialogs\Setting.xaml.cs">
+      <DependentUpon>Setting.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\vendors\FT\FTController.cs" />
+    <Compile Include="Controllers\vendors\IB\IBController.cs" />
+    <Compile Include="Controllers\vendors\IController.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <None Include="app.config" />
+    <Resource Include="Controllers\fonts\materialdesignicons-webfont.ttf" />
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Scripts\Sample2 Indicator with return valueCS.afl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="Controllers\UI\Controls\SlippageListView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Controls\ObjectInTreeView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Dialogs\AccountConfig.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Dialogs\AssignToStrategy.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Dialogs\SaveLoadTemplate.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Main.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Resource.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Dialogs\Setting.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Custom.ControlTemplate.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Custom.DropdownItemTemplate.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Custom.Image.Resources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Custom.SelectedItemTemplate.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Custom.Tooltip.Resources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Styles\MultiSelectComboBox.Resources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\AccoutTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\ExecutionTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\LogTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\MessageTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\MinorLogTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\PendingOrderTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\PortfolioTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\ScriptTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Controllers\images\order.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Controllers\images\setting.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Controllers\images\ft.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj">
+      <Project>{0378f38f-5bf3-497f-91c2-1ee77c874593}</Project>
+      <Name>Sdl.MultiSelectComboBox</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ib-csharp-master\Krs.Ats.IBNet\Krs.Ats.IBNet.csproj">
+      <Project>{66da63ac-f9f9-40ff-ba11-a3f7816e02ba}</Project>
+      <Name>Krs.Ats.IBNet</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Controllers\images\ib.png" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>**** Updating AmiBroker folders *****
+IF "%25DotNetForAB_Home%25" EQU "" IF "%25DotNetForABx64_Home%25" EQU "" (ECHO "ERROR: Cannot deploy project output to AmiBroker folders. Missing environment variables." &amp; ECHO . &amp; EXIT -1)
+
+IF "%25DotNetForAB_Home%25" NEQ "" IF "$(Platform)" NEQ "x64" (
+ECHO ***** Deploying project output to "%25DotNetForAB_Home%25".
+xcopy /Y /I /F "$(TargetDir)$(TargetName).*" "%25DotNetForAB_Home%25\.NET for AmiBroker\Assemblies"
+xcopy /Y /I /F /S "$(ProjectDir)\Scripts\*.afl" "%25DotNetForAB_Formulas%25\.NET for AmiBroker\IBController and RT Trading"
+)
+
+IF "%25DotNetForABx64_Home%25" NEQ "" IF "$(Platform)" NEQ "x86" (
+ECHO ***** Deploying project output to "%25DotNetForABx64_Home%25".
+xcopy /Y /I /F "$(TargetDir)$(TargetName).*" "%25DotNetForABx64_Home%25\.NET for AmiBroker\Assemblies"
+xcopy /Y /I /F /S "$(ProjectDir)\Scripts\*.afl" "%25DotNetForABx64_Formulas%25\.NET for AmiBroker\IBController and RT Trading"
+)
+</PostBuildEvent>
+  </PropertyGroup>
+</Project>
