@@ -1146,6 +1146,12 @@ namespace AmiBroker.Controllers
                             warning += "There is a pending StoplossLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong);
                         }
+                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        {
+                            message += "There is a pending BUY order being cancelled";
+                            account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Buy].LastOrDefault());
+                            return false;
+                        }
                         //
                         // modify STOP order if LmtPrice and Stop Price are different
                         // skip for LIMIT order
@@ -1203,6 +1209,12 @@ namespace AmiBroker.Controllers
                         {
                             warning += "There is a pending StoplossShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort);
+                        }
+                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        {
+                            message += "There is a pending SHORT order being cancelled";
+                            account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Short].LastOrDefault());
+                            return false;
                         }
                         //
                         // modify STOP order if LmtPrice and Stop Price are different

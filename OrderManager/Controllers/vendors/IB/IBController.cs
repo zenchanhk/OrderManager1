@@ -1310,6 +1310,16 @@ namespace AmiBroker.Controllers
         {
             try
             {
+                if (oi == null)
+                {
+                    mainVM.Log(new Log
+                    {
+                        Text = "Cancellation failed due to OrderInfo is null.",
+                        Source = "Controller.CancelOrders",
+                        Time = DateTime.Now
+                    });
+                    return false;
+                }
                 IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction]
                     .Where(x => x.BatchNo == oi.BatchNo);
                 foreach (var orderInfo in orderInfos)
