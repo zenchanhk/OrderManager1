@@ -116,7 +116,7 @@ namespace AmiBroker.Controllers
         public CustomFilterService FilterService { get; } = new CustomFilterService();
 
         public static List<OrderStatus> IncompleteStatus { get; } = new List<OrderStatus> { OrderStatus.Inactive,
-            OrderStatus.PendingSubmit, OrderStatus.Submitted, OrderStatus.PartiallyFilled };
+            OrderStatus.PendingSubmit, OrderStatus.Submitted, OrderStatus.PartiallyFilled, OrderStatus.PreSubmitted };
         public static IEnumerable<OrderInfo> GetUnfilledOrderInfo(IEnumerable<OrderInfo> orderInfos)
         {
             OrderInfo info = orderInfos.Where(x => x.OrderStatus == null || IncompleteStatus.Any(y => y == x.OrderStatus?.Status)).LastOrDefault();
@@ -268,8 +268,7 @@ namespace AmiBroker.Controllers
                     LogList[0].Time = log.Time;
                 else
                 {
-                    LogList.Insert(0, log);
-                    
+                    LogList.Insert(0, log);                    
                     if (File.Exists(logfile))
                     {
                         using (var sw = new StreamWriter(logfile, true))
@@ -316,6 +315,7 @@ namespace AmiBroker.Controllers
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 MessageList.Insert(0, msg);
+                CreateLoggingFiles();
                 if (File.Exists(msgfile))
                 {
                     using (var sw = new StreamWriter(msgfile, true))
@@ -331,7 +331,7 @@ namespace AmiBroker.Controllers
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 Orders.Insert(0, order);
-                CreateLoggingFiles();
+                //CreateLoggingFiles();
                 if (File.Exists(orderfile))
                 {
                     using (var sw = new StreamWriter(orderfile, true))
@@ -347,7 +347,7 @@ namespace AmiBroker.Controllers
             PendingOrdersView.Refresh();
             ExecutionView.Refresh();
 
-            CreateLoggingFiles();
+            //CreateLoggingFiles();
             if (File.Exists(orderfile))
             {
                 using (var sw = new StreamWriter(orderfile, true))

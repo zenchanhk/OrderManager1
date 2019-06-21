@@ -1002,7 +1002,7 @@ namespace AmiBroker.Controllers
 
                     // in case of slippage table defined
                     if (orderType.Slippages != null && orderType.Slippages.Count > 0)
-                    {
+                     {
                         // assign position size according to the pre-defined slippage table
                         int round = 0;
                         int accuPosSize = 0;    // accumulated position size
@@ -1747,8 +1747,20 @@ namespace AmiBroker.Controllers
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
                     string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
                     // ignore future placed order error message
-                    //if (!e.ErrorMsg.ToLower().Contains("until"))
-                    //    AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
+                    if (e.ErrorMsg.ToLower().Contains("exception") || e.ErrorMsg.ToLower().Contains("notconnected"))
+                        AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
+
+                    // deal with disappeared PreSubmitted orders
+                    if (e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found"))
+                    {
+                        OrderStatusEventArgs args = new OrderStatusEventArgs();
+                        args.Filled = 0;
+                        args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                        args.Status = OrderStatus.ApiCancelled;
+                        args.OrderId = e.TickerId;
+                        eh_OrderStatus(this, args);
+                    }
+
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()
@@ -1798,7 +1810,7 @@ namespace AmiBroker.Controllers
             }
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                mainVM.MessageList.Insert(0, new Message()
+                mainVM.AddMessage(new Message()
                 {
                     Time = DateTime.Now,
                     //Code = e.ErrorCode.,
@@ -1893,7 +1905,7 @@ namespace AmiBroker.Controllers
             }
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                mainVM.MessageList.Insert(0, new Message()
+                mainVM.AddMessage(new Message()
                 {
                     Source = DisplayName,
                     Time = DateTime.Now,

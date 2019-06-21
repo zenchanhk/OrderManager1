@@ -243,11 +243,11 @@ namespace AmiBroker.Controllers
                 {
                     if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
                     {
-                        strategyStat.AccountStatus &= ~AccountStatus.BuyPending;                        
+                        strategyStat.AccountStatus &= ~AccountStatus.BuyPending;
+                        strategyStat.AccountStatus |= AccountStatus.Long;
                         scriptStat.LongPendingStrategies.Remove(strategy.Name);
                         if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Filled > 0)
-                        {
-                            strategyStat.AccountStatus |= AccountStatus.Long;
+                        {                            
                             scriptStat.LongStrategies.Add(strategy.Name);
                         }
                     }                        
@@ -264,10 +264,10 @@ namespace AmiBroker.Controllers
                     if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
                     {
                         strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
+                        strategyStat.AccountStatus |= AccountStatus.Short;
                         scriptStat.ShortPendingStrategies.Remove(strategy.Name);
                         if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Filled > 0)
-                        {
-                            strategyStat.AccountStatus |= AccountStatus.Short;
+                        {                            
                             scriptStat.ShortStrategies.Add(strategy.Name);
                         }
                     }

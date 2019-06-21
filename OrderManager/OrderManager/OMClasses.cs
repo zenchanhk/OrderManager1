@@ -992,161 +992,159 @@ namespace AmiBroker.OrderManager
                 ObservableConcurrentDictionary<OrderAction, ActionAfterParam> activeActionAfter = typeSide == TypeSide.Long ?
                     LongActionAfter : ShortActionAfter;
 
-                if (ActionType == ActionType.Short || ActionType == ActionType.LongAndShort)
+                
+                if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0 &&
+                (activeActionAfter[OrderAction.Short].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.Short].DropTick > 0))
                 {
-                    if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0 &&
-                    (activeActionAfter[OrderAction.Short].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.Short].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.Short;
-                        actionSide = OMActionSide.Sell;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Short]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.APSShortActivated) != 0 &&
-                    (activeActionAfter[OrderAction.APSShort].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.APSShort].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.APSShort;
-                        actionSide = OMActionSide.Buy;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.APSShort]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0 &&
-                    (activeActionAfter[OrderAction.StoplossShort].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.StoplossShort].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.StoplossShort;
-                        actionSide = OMActionSide.Buy;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.StoplossShort]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.CoverPending) != 0 &&
-                    (activeActionAfter[OrderAction.Cover].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.Cover].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.Cover;                        
-                        actionSide = OMActionSide.Buy;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Cover]);
-                    }
+                    activeOrderAction = OrderAction.Short;
+                    actionSide = OMActionSide.Sell;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Short]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.APSShortActivated) != 0 &&
+                (activeActionAfter[OrderAction.APSShort].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.APSShort].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.APSShort;
+                    actionSide = OMActionSide.Buy;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.APSShort]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0 &&
+                (activeActionAfter[OrderAction.StoplossShort].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.StoplossShort].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.StoplossShort;
+                    actionSide = OMActionSide.Buy;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.StoplossShort]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.CoverPending) != 0 &&
+                (activeActionAfter[OrderAction.Cover].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.Cover].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.Cover;                        
+                    actionSide = OMActionSide.Buy;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Cover]);
+                }
 
-                    else if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0 &&
-                    (activeActionAfter[OrderAction.Buy].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.Buy].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.Buy;
-                        actionSide = OMActionSide.Buy;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Buy]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.APSLongActivated) != 0 &&
-                    (activeActionAfter[OrderAction.APSLong].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.APSLong].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.APSLong;
-                        actionSide = OMActionSide.Sell;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.APSLong]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0 &&
-                    (activeActionAfter[OrderAction.StoplossLong].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.StoplossLong].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.StoplossLong;
-                        actionSide = OMActionSide.Sell;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.StoplossLong]);
-                    }
-                    else if ((baseStat.AccountStatus & AccountStatus.SellPending) != 0 &&
-                    (activeActionAfter[OrderAction.Sell].HoldDuration > 0 ||
-                    activeActionAfter[OrderAction.Sell].DropTick > 0))
-                    {
-                        activeOrderAction = OrderAction.Sell;
-                        actionSide = OMActionSide.Sell;
-                        orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Sell]);
-                    }
+                else if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0 &&
+                (activeActionAfter[OrderAction.Buy].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.Buy].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.Buy;
+                    actionSide = OMActionSide.Buy;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Buy]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.APSLongActivated) != 0 &&
+                (activeActionAfter[OrderAction.APSLong].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.APSLong].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.APSLong;
+                    actionSide = OMActionSide.Sell;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.APSLong]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0 &&
+                (activeActionAfter[OrderAction.StoplossLong].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.StoplossLong].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.StoplossLong;
+                    actionSide = OMActionSide.Sell;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.StoplossLong]);
+                }
+                else if ((baseStat.AccountStatus & AccountStatus.SellPending) != 0 &&
+                (activeActionAfter[OrderAction.Sell].HoldDuration > 0 ||
+                activeActionAfter[OrderAction.Sell].DropTick > 0))
+                {
+                    activeOrderAction = OrderAction.Sell;
+                    actionSide = OMActionSide.Sell;
+                    orderInfos = MainViewModel.GetUnfilledOrderInfo(baseStat.OrderInfos[OrderAction.Sell]);
+                }
 
 
-                    if (orderInfos != null)
-                    {
-                        oi = orderInfos.Last();
-                        bool isStopOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "AuxPrice");
-                        bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice");
-                        if (!isStopOT && !isLmtOT) return;
+                if (orderInfos != null)
+                {
+                    oi = orderInfos.Last();
+                    bool isStopOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "AuxPrice");
+                    bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice");
+                    if (!isStopOT && !isLmtOT) return;
 
-                        if (activeActionAfter[activeOrderAction].IsTriggered == null)
+                    if (activeActionAfter[activeOrderAction].IsTriggered == null)
+                    {
+
+                        if ((isStopOT && curPrice <= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Sell)
+                            || (isStopOT && curPrice >= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Buy)
+                            || !isStopOT)
                         {
-
-                            if ((isStopOT && curPrice <= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Sell)
-                                || (isStopOT && curPrice >= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Buy)
-                                || !isStopOT)
+                            activeActionAfter[activeOrderAction].IsTriggered = true;
+                            MainViewModel.Instance.MinorLog(new Log
                             {
-                                activeActionAfter[activeOrderAction].IsTriggered = true;
-                                MainViewModel.Instance.MinorLog(new Log
-                                {
-                                    Text = string.Format("Triggered: Stop:{0}, Limit:{1}, Base:{2}",
-                                    oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice),
-                                    Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
-                                    Time = DateTime.Now,
-                                });
-                            }
-                            else
-                                return;
+                                Text = string.Format("Triggered: Stop:{0}, Limit:{1}, Base:{2}",
+                                oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice),
+                                Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
+                                Time = DateTime.Now,
+                            });
                         }
+                        else
+                            return;
+                    }
 
-                        IController controller = baseStat.Account.Controller;
-                        string message = string.Empty;
-                        decimal basePrice = oi.OrderLog.OrgPrice;
-                        float diff = actionSide == OMActionSide.Buy ? curPrice - (float)basePrice : (float)basePrice - curPrice;
+                    IController controller = baseStat.Account.Controller;
+                    string message = string.Empty;
+                    decimal basePrice = oi.OrderLog.OrgPrice;
+                    float diff = actionSide == OMActionSide.Buy ? curPrice - (float)basePrice : (float)basePrice - curPrice;
 
-                        if (activeActionAfter[activeOrderAction].IsTriggered != null && (bool)activeActionAfter[activeOrderAction].IsTriggered)
-                        {
-                            activeActionAfter[activeOrderAction].Duration = Math.Round((DateTime.Now - (DateTime)activeActionAfter[activeOrderAction].StopBreakTime).TotalSeconds);
-                            activeActionAfter[activeOrderAction].Points = Math.Round(diff / (float)Symbol.MinTick, 1);
+                    if (activeActionAfter[activeOrderAction].IsTriggered != null && (bool)activeActionAfter[activeOrderAction].IsTriggered)
+                    {
+                        activeActionAfter[activeOrderAction].Duration = Math.Round((DateTime.Now - (DateTime)activeActionAfter[activeOrderAction].StopBreakTime).TotalSeconds);
+                        activeActionAfter[activeOrderAction].Points = Math.Round(diff / (float)Symbol.MinTick, 1);
+                    }
+                    else
+                    {
+                        activeActionAfter[activeOrderAction].Duration = 0;
+                        activeActionAfter[activeOrderAction].Points = 0;
+                    }
+
+                    bool cond_timeout = activeActionAfter[activeOrderAction].StopBreakTime != null ? activeActionAfter[activeOrderAction].Duration >= activeActionAfter[activeOrderAction].HoldDuration && activeActionAfter[activeOrderAction].HoldDuration > 0 : false;
+                    bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;
+                    List<int> ids = new List<int>();
+                    if (cond_point || cond_timeout)
+                    {
+                        if (activeOrderAction == OrderAction.Short || activeOrderAction == OrderAction.Buy)
+                        {                                
+                            foreach (var info in orderInfos)
+                            {
+                                controller.CancelOrder(info.RealOrderId);
+                                ids.Add(info.RealOrderId);
+                            }
+                            message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have been cancelled due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
+                                cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise") 
+                                + activeActionAfter[activeOrderAction].Points : "unknown reason",
+                                string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
                         }
                         else
                         {
-                            activeActionAfter[activeOrderAction].Duration = 0;
-                            activeActionAfter[activeOrderAction].Points = 0;
-                        }
-
-                        bool cond_timeout = activeActionAfter[activeOrderAction].StopBreakTime != null ? activeActionAfter[activeOrderAction].Duration >= activeActionAfter[activeOrderAction].HoldDuration && activeActionAfter[activeOrderAction].HoldDuration > 0 : false;
-                        bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;
-                        List<int> ids = new List<int>();
-                        if (cond_point || cond_timeout)
-                        {
-                            if (activeOrderAction == OrderAction.Short || activeOrderAction == OrderAction.Buy)
-                            {                                
-                                foreach (var info in orderInfos)
-                                {
-                                    controller.CancelOrder(info.RealOrderId);
-                                    ids.Add(info.RealOrderId);
-                                }
-                                message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have been cancelled due to {2}, strategy - {1}", oi.BatchNo, Name,
-                                    cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
-                                    cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise") 
-                                    + activeActionAfter[activeOrderAction].Points : "unknown reason",
-                                    string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
-                            }
-                            else
+                            foreach (var info in orderInfos)
                             {
-                                foreach (var info in orderInfos)
-                                {
-                                    controller.CancelOrder(info.RealOrderId);
-                                    ids.Add(info.RealOrderId);
-                                }
-                                controller.ModifyOrder(orderInfos);
-                                message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
-                                    cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
-                                    cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
-                                    + activeActionAfter[activeOrderAction].Points : "unknown reason",
-                                    string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                                controller.CancelOrder(info.RealOrderId);
+                                ids.Add(info.RealOrderId);
                             }
+                            controller.ModifyOrder(orderInfos);
+                            message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
+                                cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
+                                + activeActionAfter[activeOrderAction].Points : "unknown reason",
+                                string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
                         }
-
-                        // log message
-                        if (!string.IsNullOrEmpty(message))
-                            MainViewModel.Instance.Log(new Log
-                            {
-                                Text = message,
-                                Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
-                                Time = DateTime.Now
-                            });
                     }
+
+                    // log message
+                    if (!string.IsNullOrEmpty(message))
+                        MainViewModel.Instance.Log(new Log
+                        {
+                            Text = message,
+                            Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
+                            Time = DateTime.Now
+                        });
                 }
             }
         }

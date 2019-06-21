@@ -591,9 +591,9 @@ namespace AmiBroker.OrderManager
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             if (Slippages != null && Slippages.Count >= 0)
-                OrderType = OrderType.Stop;
-            else
                 OrderType = OrderType.StopLimit;
+            else
+                OrderType = OrderType.Stop;
         }
     }
 
