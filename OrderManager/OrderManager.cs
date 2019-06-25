@@ -63,6 +63,23 @@ namespace AmiBroker.Controllers
         public int Filled { get; private set; }
         public int Canceled { get; private set; }
         public decimal AvgPrice { get; private set; }
+        public void Modify(int orderId, int newTotal)
+        {
+            if (AllPosSizes.ContainsKey(orderId))
+            {
+                Total = newTotal - AllPosSizes[orderId].Total;
+                Remaining = Remaining - (AllPosSizes[orderId].Total - newTotal);
+            }
+            else
+            {
+                MainViewModel.Instance.MinorLog(new Log
+                {
+                    Text = string.Format("OrderId:{0} cannot be found", orderId),
+                    Source = "Modify PosSize - OrderId[" + orderId + "]",
+                    Time = DateTime.Now
+                });
+            }
+        }
         public void AddNew(int orderId, int total)
         {
             if (AllPosSizes.ContainsKey(orderId))
@@ -249,6 +266,35 @@ namespace AmiBroker.Controllers
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
 
         private static object lockPS = new object();
+        public static void ModifyPosSize(string key, int orderId, int newTotal)
+        {
+            bool _locked = false;
+            Monitor.Enter(lockPS, ref _locked);
+            try
+            {
+                if (BatchPosSize.ContainsKey(key))
+                {
+                    BatchPosSize[key].Modify(orderId, newTotal);
+                }
+                else
+                {
+                    MainViewModel.Instance.MinorLog(new Log
+                    {
+                        Text = string.Format("BatchPosSize key:{0} cannot be found", key),
+                        Source = "Modify PosSize - OrderId[" + orderId + "]",
+                        Time = DateTime.Now
+                    });
+                }
+            }
+            finally
+            {
+                if (_locked)
+                {
+                    //System.Diagnostics.Debug.Print("locked");
+                    Monitor.Exit(lockPS);
+                }
+            }
+        }
         public static void AddBatchPosSize(string key, int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0)
         {
             bool _locked = false;
@@ -639,6 +685,7 @@ namespace AmiBroker.Controllers
         {
             try
             {
+                // get strategy's stat
                 BaseStat stat = strategy.AccountStat[strategyStat.Account.Name];
                 IEnumerable<OrderInfo> orderInfos = MainViewModel.GetUnfilledOrderInfo(stat.OrderInfos[action]);
                 if (orderInfos == null)

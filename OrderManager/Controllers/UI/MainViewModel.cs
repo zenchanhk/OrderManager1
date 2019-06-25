@@ -271,10 +271,18 @@ namespace AmiBroker.Controllers
                     LogList.Insert(0, log);                    
                     if (File.Exists(logfile))
                     {
-                        using (var sw = new StreamWriter(logfile, true))
+                        try
                         {
-                            sw.WriteLine(ListViewHelper.ObjectToLine(log));
+                            using (var sw = new StreamWriter(logfile, true))
+                            {
+                                sw.WriteLine(ListViewHelper.ObjectToLine(log));
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            GlobalExceptionHandler.HandleException("Log", ex);
+                        }
+                        
                     }
                 }
                     
@@ -303,10 +311,17 @@ namespace AmiBroker.Controllers
                     
                     if (File.Exists(minorlogfile))
                     {
-                        using (var sw = new StreamWriter(minorlogfile, true))
+                        try
                         {
-                            sw.WriteLine(ListViewHelper.ObjectToLine(log));
+                            using (var sw = new StreamWriter(minorlogfile, true))
+                            {
+                                sw.WriteLine(ListViewHelper.ObjectToLine(log));
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            GlobalExceptionHandler.HandleException("Minor Log", ex);
+                        }                        
                     }
                 });
         }
@@ -318,10 +333,18 @@ namespace AmiBroker.Controllers
                 CreateLoggingFiles();
                 if (File.Exists(msgfile))
                 {
-                    using (var sw = new StreamWriter(msgfile, true))
+                    try
                     {
-                        sw.WriteLine(ListViewHelper.ObjectToLine(msg));
+                        using (var sw = new StreamWriter(msgfile, true))
+                        {
+                            sw.WriteLine(ListViewHelper.ObjectToLine(msg));
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        GlobalExceptionHandler.HandleException("Message Logging", ex);
+                    }
+                    
                 }
             });
         }
@@ -334,10 +357,18 @@ namespace AmiBroker.Controllers
                 //CreateLoggingFiles();
                 if (File.Exists(orderfile))
                 {
-                    using (var sw = new StreamWriter(orderfile, true))
+                    try
                     {
-                        sw.WriteLine(ListViewHelper.ObjectToLine(order));
+                        using (var sw = new StreamWriter(orderfile, true))
+                        {
+                            sw.WriteLine(ListViewHelper.ObjectToLine(order));
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        GlobalExceptionHandler.HandleException("Order Log", ex);
+                   }
+                    
                 }
             });
         }
@@ -347,17 +378,6 @@ namespace AmiBroker.Controllers
             PendingOrdersView.Refresh();
             ExecutionView.Refresh();
 
-            //CreateLoggingFiles();
-            if (File.Exists(orderfile))
-            {
-                using (var sw = new StreamWriter(orderfile, true))
-                {
-                    foreach (var item in e.NewItems)
-                    {
-                        sw.WriteLine(ListViewHelper.ObjectToLine(item));
-                    }                    
-                }
-            }
         }
 
         private void CreateLoggingFiles()

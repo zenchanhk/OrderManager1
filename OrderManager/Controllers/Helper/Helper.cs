@@ -128,7 +128,7 @@ namespace AmiBroker.Controllers
     public static class BaseOrderTypeAccessor
     {
         private static Dictionary<string, TypeAccessor> _accessors = new Dictionary<string, TypeAccessor>();
-        
+        private readonly static object lockObj = new object();
         public static TypeAccessor GetAccessor(string name, string nameSpace)
         {
             if (_accessors.ContainsKey(name))
@@ -146,14 +146,17 @@ namespace AmiBroker.Controllers
         {
             Type type = obj.GetType();
             string name = type.FullName;
-            if (_accessors.ContainsKey(name))
-                return _accessors[name];
-            else
-            {                
-                TypeAccessor accessor = TypeAccessor.Create(type);
-                _accessors.Add(name, accessor);
-                return accessor;
-            }
+            lock (lockObj)
+            {
+                if (_accessors.ContainsKey(name))
+                    return _accessors[name];
+                else
+                {
+                    TypeAccessor accessor = TypeAccessor.Create(type);
+                    _accessors.Add(name, accessor);
+                    return accessor;
+                }
+            }            
         }
 
         public static bool HasProperty(object obj, string propName)

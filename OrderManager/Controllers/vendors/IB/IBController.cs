@@ -720,7 +720,7 @@ namespace AmiBroker.Controllers
                 }// END of update of order's prices
 
                 // The size of slippages of original and new must be equal
-                if (orderInfos.Count() != orderType.Slippages.Count || oi.OrderType.Slippages.Count != orderType.Slippages.Count)
+                if (oi.OrderType.Slippages.Count != orderType.Slippages.Count)
                 {
                     mainVM.Log(new Log
                     {
@@ -752,7 +752,8 @@ namespace AmiBroker.Controllers
                     }
 
                     // re-calc the quantity to prevent partially filled order being modified with original quantity
-                    order.TotalQuantity = (oi.OrderLog.PosSize - (int)oi.Filled) * oi.Strategy.Symbol.RoundLotSize;
+                    // order.TotalQuantity = (oi.OrderLog.PosSize - (int)oi.Filled) * oi.Strategy.Symbol.RoundLotSize;
+
                     Contract contract = orderInfo.Contract;
                     //Task.Run(() => {
                         Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
@@ -766,6 +767,19 @@ namespace AmiBroker.Controllers
                         displayedOrder.StopPrice = order.AuxPrice;
                     }
                 }
+
+                /*
+                if (quantity != orderInfo.OrderLog.PosSize * orderInfo.Strategy.Symbol.RoundLotSize)
+                {
+                    mainVM.Log(new Log
+                    {
+                        Source = "ModifyOrder",
+                        Time = DateTime.Now,
+                        Text = string.Format("Order Id [{0}] quantity modified with new pos:{1}, old pos:{2}",
+                            orderInfo.RealOrderId, quantity / orderInfo.Strategy.Symbol.RoundLotSize,
+                            orderInfo.OrderLog.PosSize)
+                    });
+                }*/
 
                 mainVM.Log(new Log
                 {
@@ -1498,11 +1512,12 @@ namespace AmiBroker.Controllers
                     {
                         dOrder = dOrder.ShallowCopy();
                         dOrder.Time = DateTime.Now;
+                        OrderInfo oi = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId];
                         Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
-                        {
+                        {                            
                             dOrder.Status = e.Status;
-                            dOrder.Filled = e.Filled;
-                            dOrder.Remaining = e.Remaining;
+                            dOrder.Filled = e.Filled / oi.Strategy.Symbol.RoundLotSize;
+                            dOrder.Remaining = e.Remaining / oi.Strategy.Symbol.RoundLotSize;
                             dOrder.AvgPrice = e.AverageFillPrice;
                             mainVM.Orders.Insert(0, dOrder);
                         });                        
@@ -1541,7 +1556,7 @@ namespace AmiBroker.Controllers
                         // previous status: partially filled
                         // current status: canceled
                         // will result in same filled and canceled amount
-                        // need flaggin here
+                        // need flagging here
                         if (displayedOrder.Status != e.Status && (e.Status == OrderStatus.ApiCancelled || e.Status == OrderStatus.Canceled))
                         {
                             duplicatedFound = true;
@@ -1659,26 +1674,29 @@ namespace AmiBroker.Controllers
                                 else if (oi.OrderAction == OrderAction.Sell || oi.OrderAction == OrderAction.APSLong
                                     || oi.OrderAction == OrderAction.StoplossLong)
                                 {
-                                    strategyStat.LongPosition = cur_remaining;
+                                    strategyStat.LongPosition -= cur_filled - prev_filled;
                                     scriptStat.LongPosition -= cur_filled - prev_filled;
                                 }
 
                                 else if (oi.OrderAction == OrderAction.Cover || oi.OrderAction == OrderAction.APSShort
                                     || oi.OrderAction == OrderAction.StoplossShort)
                                 {
-                                    strategyStat.ShortPosition = cur_remaining;
+                                    strategyStat.ShortPosition -= cur_filled - prev_filled;
                                     scriptStat.ShortPosition -= cur_filled - prev_filled;
                                 }
                             }
 
                             // Update Account Status
-                            if (dOrder.Status == OrderStatus.Filled || dOrder.Status == OrderStatus.PartiallyFilled)
-                                AccountStatusOp.SetPositionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, oi);
+                            //if (dOrder.Status == OrderStatus.Filled || dOrder.Status == OrderStatus.PartiallyFilled)
+                                //AccountStatusOp.SetPositionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, oi);
 
 
                             // update account status if canceled
-                            if (dOrder.Status == OrderStatus.ApiCancelled || dOrder.Status == OrderStatus.Canceled)
+                            if ((dOrder.Status == OrderStatus.ApiCancelled || dOrder.Status == OrderStatus.Canceled) && filled == 0)
                                 AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, true);
+                            // Update Account Status if filled or partially filled
+                            else if (filled > 0)
+                                AccountStatusOp.SetPositionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, oi);
 
                             break;
                             
@@ -1761,13 +1779,33 @@ namespace AmiBroker.Controllers
                         eh_OrderStatus(this, args);
                     }
 
+                    // deal with insufficent buying power
+                    bool canceledByError = false;
+                    if (e.ErrorMsg.ToLower().Contains("order rejected") &&
+                        e.ErrorMsg.ToLower().Contains("insufficient"))
+                    {
+                        // only whole order got canceled
+                        if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
+                        {
+                            OrderStatusEventArgs args = new OrderStatusEventArgs();
+                            args.Filled = 0;
+                            args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                            args.Status = OrderStatus.ApiCancelled;
+                            args.OrderId = e.TickerId;
+                            args.WhyHeld = "canceled due to insufficient equity";
+                            eh_OrderStatus(this, args);
+                            canceledByError = true;
+                        }                                              
+                    }
+
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()
                         {
                             Time = DateTime.Now,
                             Text = e.ErrorCode + "-" + e.ErrorMsg + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
-                            + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])",
+                            + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])"
+                            + (canceledByError ? "\nCanceled due to insufficient equity" : ""),
                             Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage
                         });
                     });
