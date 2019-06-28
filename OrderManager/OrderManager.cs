@@ -103,33 +103,36 @@ namespace AmiBroker.Controllers
         }
         public void Add(int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0)
         {
-            int prev_re = -1;
+            int prev_remaining = -1;
             int prev_filled = -1;
+            int prev_canceled = -1;
+
             if (AllPosSizes.ContainsKey(orderId))
             {
-                prev_re = AllPosSizes[orderId].Remaining;
+                prev_remaining = AllPosSizes[orderId].Remaining;
                 prev_filled = AllPosSizes[orderId].Filled;
+                prev_canceled = AllPosSizes[orderId].Canceled;
                 // in case of OrderStatus event returning order is wrong
-                if (prev_filled > filled)
+                if (prev_filled > filled && prev_remaining < remaining && canceled == 0)
                 {
-                    /*
                     MainViewModel.Instance.MinorLog(new Log
                     {
-                        Text = string.Format("OrderStatus arrived in wrong order -- filled:{0}, prev_filled:{1}",
-                                filled, prev_filled),
+                        Text = string.Format("OrderStatus arrived in wrong order -- prev_filled:{1},"
+                                + " prev_remaining:{2}, prev_canceled:{3}, filled:{0}, remaining:{4}, canceled:{5}",
+                                filled, prev_filled, prev_remaining, prev_canceled, remaining, canceled),
                         Source = orderId.ToString(),
                         Time = DateTime.Now
-                    });*/
+                    });
                     return;
                 }
 
                 if (canceled > 0)
                 {
-                    Remaining -= canceled;
-                    Canceled += canceled;
+                    Remaining -= canceled - prev_canceled;
+                    Canceled += canceled - prev_canceled;
                 }
                 else
-                    Remaining += remaining - prev_re;
+                    Remaining += remaining - prev_remaining;
 
                 decimal ttl = Filled * AvgPrice + (filled - prev_filled) * avgPrice;                
                 Filled += filled - prev_filled;
@@ -248,11 +251,15 @@ namespace AmiBroker.Controllers
         }*/
         // batch no is used for identifying the orders sent in group
         private static int batch_no = 0;
+        private readonly static object bnoLock = new object();
         public static int BatchNo
         {
             get
             {
-                return batch_no++;
+                lock (bnoLock)
+                {
+                    return batch_no++;
+                }                
             }
         }
 
@@ -624,6 +631,7 @@ namespace AmiBroker.Controllers
                                             {
                                                 Time = orderLog.OrderSentTime,
                                                 Text = orderAction.ToString() + " order sent (OrderId:" + orderLog.OrderId.ToString()
+                                                + ", PosSize:" + orderLog.PosSize
                                                 + (orderLog.OrgPrice > 0 ? ", OrgPrice:" + orderLog.OrgPrice.ToString() : "")
                                                 + (orderLog.LmtPrice > 0 ? ", LmtPrice:" + orderLog.LmtPrice.ToString() : "") + ")",
                                                 Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderLog.Slippage

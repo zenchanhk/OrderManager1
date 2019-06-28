@@ -52,6 +52,10 @@ namespace AmiBroker.Controllers
             get { return _pStatusMsg; }
             set { _UpdateField(ref _pStatusMsg, value); }
         }
+        // locks
+        public readonly static object ordersLock = new object();
+        public readonly static object updatedOrdersLock = new object();
+        public readonly static object orderInfoListLock = new object();
         // Icons
         public Image ImageSaveLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.ContentSaveAll, Util.Color.Indigo);
         public Image ImageRestoreLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.WindowRestore, Util.Color.Indigo);
@@ -119,7 +123,8 @@ namespace AmiBroker.Controllers
             OrderStatus.PendingSubmit, OrderStatus.Submitted, OrderStatus.PartiallyFilled, OrderStatus.PreSubmitted };
         public static IEnumerable<OrderInfo> GetUnfilledOrderInfo(IEnumerable<OrderInfo> orderInfos)
         {
-            OrderInfo info = orderInfos.Where(x => x.OrderStatus == null || IncompleteStatus.Any(y => y == x.OrderStatus?.Status)).LastOrDefault();
+            OrderInfo info = orderInfos.Where(x => x.OrderStatus == null || 
+            (x.OrderStatus != null && IncompleteStatus.Any(y => y == x.OrderStatus?.Status) && x.OrderStatus.Remaining > 0)).LastOrDefault();
             if (info != null)
                 return orderInfos.Where(x => x.BatchNo == info.BatchNo && (x.OrderStatus == null || 
                                             IncompleteStatus.Any(y => y == x.OrderStatus?.Status)));
@@ -260,6 +265,13 @@ namespace AmiBroker.Controllers
             }
             return false;
         }
+        public void AddOrderInfo(string key, OrderInfo oi)
+        {
+            lock (orderInfoListLock)
+            {
+                Instance.OrderInfoList.Add(key, oi);
+            }
+        }
         public void Log(Log log)
         {
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
@@ -349,11 +361,15 @@ namespace AmiBroker.Controllers
             });
         }
 
-        private void InsertOrder(DisplayedOrder order)
+        public void InsertOrder(DisplayedOrder order)
         {
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                Orders.Insert(0, order);
+                lock (ordersLock)
+                {
+                    Orders.Insert(0, order);
+                }
+                
                 //CreateLoggingFiles();
                 if (File.Exists(orderfile))
                 {
