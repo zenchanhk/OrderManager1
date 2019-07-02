@@ -333,6 +333,7 @@ namespace AmiBroker.Controllers
             }
         }
 
+        private static float close = 0;
         [ABMethod]
         public void IBC(string scriptName)
         {
@@ -409,7 +410,7 @@ namespace AmiBroker.Controllers
                             lockOjbs.Add(key, new object());
 
                         // check pending order
-                        float close = Close[BarCount - 1];
+                        close = Close[BarCount - 1];
                         if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                             Task.Run(() => strategy.CheckPendingOrders(close, TypeSide.Long));
                         if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
@@ -1002,6 +1003,17 @@ namespace AmiBroker.Controllers
                         break;
                     case OrderAction.Buy:
 
+                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        {
+                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
+                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
+                            if ((stopPrice - ((decimal)close)) > (20 * strategy.Symbol.MinTick))
+                            {
+                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
+                                return false;
+                            }
+                        }
+
                         if (strategyStat.LongPosition > 0)
                         {
                             message += "There is already a LONG position for strategy - " + strategy.Name;
@@ -1096,6 +1108,17 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Short:
+                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        {
+                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
+                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
+                            if ((((decimal)close) - stopPrice) > (20 * strategy.Symbol.MinTick))
+                            {
+                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
+                                return false;
+                            }
+                        }
+
                         if (strategyStat.ShortPosition > 0)
                         {
                             message += "There is already a SHORT position for strategy - " + strategy.Name;

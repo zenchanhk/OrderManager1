@@ -1597,6 +1597,7 @@ namespace AmiBroker.Controllers
                         // current status: canceled
                         // will result in same filled and canceled amount
                         // need flagging here
+
                         if (displayedOrder.Status != e.Status && (e.Status == OrderStatus.ApiCancelled || e.Status == OrderStatus.Canceled))
                         {
                             duplicatedFound = true;
@@ -1674,10 +1675,10 @@ namespace AmiBroker.Controllers
                             {
                                 // if duplicated found, only remaining will be passed as canceled amount
                                 // since filled has been passed when PartiallyFilled issued
-                                if (duplicatedFound)
+                                //if (duplicatedFound)
                                     // only canceled should be calculated
-                                    OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
-                                else
+                                   // OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
+                                //else
                                     OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, 0, remaining, e.AverageFillPrice);
                             }
                             else

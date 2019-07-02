@@ -131,14 +131,17 @@ namespace AmiBroker.Controllers
         private readonly static object lockObj = new object();
         public static TypeAccessor GetAccessor(string name, string nameSpace)
         {
-            if (_accessors.ContainsKey(name))
-                return _accessors[name];
-            else
+            lock (lockObj)
             {
-                Type type = Type.GetType(nameSpace + "." + name);
-                TypeAccessor accessor = TypeAccessor.Create(type);
-                _accessors.Add(name, accessor);
-                return accessor;
+                if (_accessors.ContainsKey(name))
+                    return _accessors[name];
+                else
+                {
+                    Type type = Type.GetType(nameSpace + "." + name);
+                    TypeAccessor accessor = TypeAccessor.Create(type);
+                    _accessors.Add(name, accessor);
+                    return accessor;
+                }
             }
         }
 
@@ -164,13 +167,16 @@ namespace AmiBroker.Controllers
             Type type = obj.GetType();
             string name = type.FullName;
             TypeAccessor accessor = null;
-            if (_accessors.ContainsKey(name))
-                accessor = _accessors[name];
-            else
+            lock (lockObj)
             {
-                TypeAccessor ta = TypeAccessor.Create(type);
-                _accessors.Add(name, ta);
-                accessor = ta;
+                if (_accessors.ContainsKey(name))
+                    accessor = _accessors[name];
+                else
+                {
+                    TypeAccessor ta = TypeAccessor.Create(type);
+                    _accessors.Add(name, ta);
+                    accessor = ta;
+                }
             }
             MemberSet members = accessor.GetMembers();
             return members.Any(x => x.Name == propName);
@@ -181,13 +187,16 @@ namespace AmiBroker.Controllers
             Type type = obj.GetType();
             string name = type.FullName;
             TypeAccessor accessor = null;
-            if (_accessors.ContainsKey(name))
-                accessor = _accessors[name];
-            else
+            lock (lockObj)
             {
-                TypeAccessor ta = TypeAccessor.Create(type);
-                _accessors.Add(name, ta);
-                accessor = ta;
+                if (_accessors.ContainsKey(name))
+                    accessor = _accessors[name];
+                else
+                {
+                    TypeAccessor ta = TypeAccessor.Create(type);
+                    _accessors.Add(name, ta);
+                    accessor = ta;
+                }
             }
             MemberSet members = accessor.GetMembers();
             if (members.Any(x => x.Name == propName))
@@ -201,13 +210,16 @@ namespace AmiBroker.Controllers
             Type type = obj.GetType();
             string name = type.FullName;
             TypeAccessor accessor = null;
-            if (_accessors.ContainsKey(name))
-                accessor = _accessors[name];
-            else
+            lock (lockObj)
             {
-                TypeAccessor ta = TypeAccessor.Create(type);
-                _accessors.Add(name, ta);
-                accessor = ta;
+                if (_accessors.ContainsKey(name))
+                    accessor = _accessors[name];
+                else
+                {
+                    TypeAccessor ta = TypeAccessor.Create(type);
+                    _accessors.Add(name, ta);
+                    accessor = ta;
+                }
             }
             MemberSet members = accessor.GetMembers();
             List<string> result = new List<string>();
