@@ -68,7 +68,7 @@ namespace AmiBroker.Controllers
         //public Image ImageOrderCancel { get; private set; } = new Image() { Source = new BitmapImage(new Uri("pack://application:,,,/OrderManager;component/Controllers/images/order-cancel.png")) };        
         // commands
         public Commands Commands { get; set; } = new Commands();
-        public List<TimeZone> TimeZones { get; private set; } = new List<TimeZone>();
+        public ObservableCollection<TimeZone> TimeZones { get; private set; } = new ObservableCollection<TimeZone>();
         public List<WeekDay> Weekdays { get; set; } = new List<WeekDay>();
         // All OrderTypes 
         public List<BaseOrderType> AllIBOrderTypes { get; set; } = new List<BaseOrderType>();
@@ -280,6 +280,7 @@ namespace AmiBroker.Controllers
                     LogList[0].Time = log.Time;
                 else
                 {
+                    log.Text = log.Text.TrimEnd('\n');
                     LogList.Insert(0, log);                    
                     if (File.Exists(logfile))
                     {
@@ -315,7 +316,15 @@ namespace AmiBroker.Controllers
                     }
                 }
             }
-            
+
+
+            Log l = MinorLogList.LastOrDefault(x => x.Source == log.Source);
+            if (l != null && l.Text == log.Text)
+            {
+                l.Time = log.Time;
+                found = true;
+            }
+
             if (!OrderManager.MainWin.MinorLogPause && !found)
                 Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
@@ -359,6 +368,21 @@ namespace AmiBroker.Controllers
                     
                 }
             });
+        }
+
+        public void InsertUpdatedOrder(DisplayedOrder dOrder)
+        {
+            lock (updatedOrdersLock)
+            {
+                UpdatedOrders.Add(dOrder);
+                MinorLog(new Log
+                {
+                    Text = string.Format("OrderId:{0}, status:{1}, filled:{2}, remaining:{3}",
+                    dOrder.RealOrderId, dOrder.Status, dOrder.Filled, dOrder.Remaining),
+                    Source = "Insert UpdatedOrder",
+                    Time = DateTime.Now
+                });
+            }
         }
 
         public void InsertOrder(DisplayedOrder order)

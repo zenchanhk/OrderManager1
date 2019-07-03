@@ -182,7 +182,7 @@ namespace AmiBroker.Controllers
             return members.Any(x => x.Name == propName);
         }
 
-        public static string GetValueByName(object obj, string propName)
+        public static dynamic GetValueByName(object obj, string propName)
         {
             Type type = obj.GetType();
             string name = type.FullName;
@@ -200,7 +200,7 @@ namespace AmiBroker.Controllers
             }
             MemberSet members = accessor.GetMembers();
             if (members.Any(x => x.Name == propName))
-                return (string)accessor[obj, propName];
+                return accessor[obj, propName];
             else
                 return null;
         }

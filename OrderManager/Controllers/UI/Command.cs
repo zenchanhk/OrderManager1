@@ -176,6 +176,7 @@ namespace AmiBroker.Controllers
                 Strategy strategy = (Strategy)assignToStrategyVM.SelectedItem;
                 BaseStat strategyStat = strategy.AccountStat[((SymbolInMkt)parameter).Account];
                 BaseStat scriptStat = strategy.Script.AccountStat[((SymbolInMkt)parameter).Account];
+                
                 if (assignToStrategyVM.AssignedPosition > 0)
                 {
                     strategyStat.LongPosition += assignToStrategyVM.AssignedPosition;
@@ -185,6 +186,8 @@ namespace AmiBroker.Controllers
                     strategyStat.LongEntry.Add(entry);
                     scriptStat.LongEntry.Add(entry);
                     scriptStat.LongStrategies.Add(strategy.Name);
+                    // approximate entry price
+                    strategy.AdaptiveProfitStopforLong.EntryPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
                 }
                 else
                 {
@@ -195,6 +198,8 @@ namespace AmiBroker.Controllers
                     strategyStat.ShortEntry.Add(entry);
                     scriptStat.ShortEntry.Add(entry);
                     scriptStat.ShortStrategies.Add(strategy.Name);
+                    // approximate entry price
+                    strategy.AdaptiveProfitStopforLong.EntryPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
                 }
             }
         }

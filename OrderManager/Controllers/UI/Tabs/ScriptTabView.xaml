@@ -159,6 +159,7 @@
                                 <xctk:PropertyDefinition TargetProperties="TrailingPercent" />
                                 <xctk:PropertyDefinition TargetProperties="TrailStopPrice" />
                                 <xctk:PropertyDefinition TargetProperties="PositionSize" />
+                                <xctk:PropertyDefinition TargetProperties="SubmitTrigger" />
                             </xctk:PropertyGrid.PropertyDefinitions>
                         </xctk:PropertyGrid>
                     </StackPanel>
@@ -198,7 +199,7 @@
                     <StackPanel Margin="5" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" Text="TimeZone:" Margin="3,0" />
                         <ComboBox ItemsSource="{Binding DataContext.TimeZones, ElementName=scriptTabView}"
-                                  SelectedItem="{Binding TimeZone}"
+                                  SelectedItem="{Binding TimeZone}" IsEnabled="False"
                                   Width="350"
                                   />
                     </StackPanel>
@@ -215,6 +216,8 @@
                                                SelectedObject="{Binding}" >
                             <xctk:PropertyGrid.PropertyDefinitions>
                                 <xctk:PropertyDefinition TargetProperties="MinTick" />
+                                <xctk:PropertyDefinition TargetProperties="TimeZoneId" />
+                                <xctk:PropertyDefinition TargetProperties="PointValue" />
                                 <xctk:PropertyDefinition TargetProperties="RoundLotSize" />
                                 <xctk:PropertyDefinition TargetProperties="MinOrderSize" />
                                 <xctk:PropertyDefinition TargetProperties="MaxOrderSize" />

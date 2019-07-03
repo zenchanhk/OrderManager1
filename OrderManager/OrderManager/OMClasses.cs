@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using Krs.Ats.IBNet;
 using System.Collections.Concurrent;
+using TimeZoneConverter;
 
 namespace AmiBroker.OrderManager
 {
@@ -1703,6 +1704,26 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pMinTick, value); }
         }
 
+        private string _pTimeZoneId;
+        [Category("Details")]
+        [DisplayName("Time Zone")]
+        [ReadOnly(true)]
+        public string TimeZoneId
+        {
+            get { return _pTimeZoneId; }
+            set { _UpdateField(ref _pTimeZoneId, value); }
+        }
+
+        private float _pPointValue;
+        [Category("Details")]
+        [DisplayName("Point Value")]
+        [ReadOnly(true)]
+        public float PointValue
+        {
+            get { return _pPointValue; }
+            set { _UpdateField(ref _pPointValue, value); }
+        }
+
         private float _pTimeFrame;
         [JsonIgnore]
         public float TimeFrame
@@ -1773,6 +1794,47 @@ namespace AmiBroker.OrderManager
                         sd.Contract = c.Contract;
                         sd.TradingHours = c.TradingHours;
                         MinTick = c.MinTick;
+                        TimeZoneId = c.TimeZoneId;
+                        PointValue = string.IsNullOrEmpty(c.Multiplier) ? 1 : float.Parse(c.Multiplier);
+
+                        if (c.TimeZoneId.Length <= 3)
+                        {
+                            Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == c.TimeZoneId);
+                            if (tz != null)
+                            {
+                                TimeZone = tz;
+                            }
+                            else
+                            {
+                                MainViewModel.Instance.MinorLog(new Log
+                                {
+                                    Text = c.TimeZoneId + " not found",
+                                    Source = "SymbolInAction.FillInContractDetails",
+                                    Time = DateTime.Now
+                                });
+                            }
+                        }
+                        else
+                        {
+                            TimeZoneInfo tzi = TZConvert.GetTimeZoneInfo(c.TimeZoneId);
+                            Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == tzi.Id);
+                            if (tz == null)
+                            {
+                                Controllers.TimeZone tmp = new Controllers.TimeZone
+                                {
+                                    Id = tzi.Id,
+                                    Description = tzi.DisplayName,
+                                    UtcOffset = tzi.BaseUtcOffset
+                                };
+                                Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
+                                {
+                                    MainViewModel.Instance.TimeZones.Add(tmp);
+                                });
+                                TimeZone = tmp;
+                            }
+                            else
+                                TimeZone = tz;
+                        }
                     }
                 }
             }

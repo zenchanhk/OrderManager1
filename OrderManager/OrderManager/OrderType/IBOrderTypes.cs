@@ -541,6 +541,11 @@ namespace AmiBroker.OrderManager
         [Description("Stop Price")]
         [ItemsSource(typeof(PriceItemsSource))]
         public string AuxPrice { get; set; } // stop price
+
+        [Category("Miscellaneous")]
+        [DisplayName("Submit Trigger Threshold")]
+        [Description("Submit Trigger Threshold")]
+        public decimal SubmitTrigger { get; set; } = 20;
         public IBStopOrder() : base()
         {
             Description = "A Stop order is an instruction to submit a buy or sell market order if and when the user-specified stop trigger price is attained or penetrated. ";
@@ -570,6 +575,11 @@ namespace AmiBroker.OrderManager
         [Description("Limit Price")]
         [ItemsSource(typeof(PriceItemsSource))]
         public string LmtPrice { get; set; }
+
+        [Category("Miscellaneous")]
+        [DisplayName("Submit Trigger Threshold")]
+        [Description("Submit Trigger Threshold")]
+        public decimal SubmitTrigger { get; set; } = 20;
         public IBStopLimitOrder() : base()
         {
             Description = "A Stop-Limit order is an instruction to submit a buy or sell limit order when the user-specified stop trigger price is attained or penetrated.";
@@ -604,6 +614,11 @@ namespace AmiBroker.OrderManager
         [Description("Stop Price")]
         [ItemsSource(typeof(PriceItemsSource))]
         public string AuxPrice { get; set; } // stop price
+
+        [Category("Miscellaneous")]
+        [DisplayName("Submit Trigger Threshold")]
+        [Description("Submit Trigger Threshold")]
+        public decimal SubmitTrigger { get; set; } = 20;
         public IBStopProtectionOrder() : base()
         {
             Description = "A Stop with Protection order combines the functionality of a stop limit order with a market with protection order. The order is set to trigger at a specified stop price. When the stop price is penetrated, the order is triggered as a market with protection order.";
@@ -625,6 +640,11 @@ namespace AmiBroker.OrderManager
         [Description("Trail Stop Price")]
         [ItemsSource(typeof(PriceItemsSource))]
         public string TrailStopPrice { get; set; }
+
+        [Category("Miscellaneous")]
+        [DisplayName("Submit Trigger Threshold")]
+        [Description("Submit Trigger Threshold")]
+        public decimal SubmitTrigger { get; set; } = 20;
         public IBStopTrailingOrder() : base()
         {
             Description = "A sell trailing stop order sets the stop price at a fixed amount below the market price with an attached \"trailing\" amount.";
@@ -659,6 +679,11 @@ namespace AmiBroker.OrderManager
         [Description("Trail Stop Price")]
         [ItemsSource(typeof(PriceItemsSource))]
         public string TrailStopPrice { get; set; }
+
+        [Category("Miscellaneous")]
+        [DisplayName("Submit Trigger Threshold")]
+        [Description("Submit Trigger Threshold")]
+        public decimal SubmitTrigger { get; set; } = 20;
         public IBStopLimitTrailingOrder() : base()
         {
             Description = "A trailing stop limit order is designed to allow an investor to specify a limit on the maximum possible loss, without setting a limit on the maximum possible gain.";

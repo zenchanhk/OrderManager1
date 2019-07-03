@@ -485,7 +485,8 @@ namespace AmiBroker.Controllers
                             {
                                 signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
                                 if (signal && (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime
-                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
+                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Buy][0], "AuxPrice")))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
                                 }
@@ -494,7 +495,8 @@ namespace AmiBroker.Controllers
 
                                 signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
                                 if (signal && (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime
-                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
+                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Sell][0], "AuxPrice")))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
                                 }
@@ -504,7 +506,8 @@ namespace AmiBroker.Controllers
                             {
                                 signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
                                 if (signal && (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime
-                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
+                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Short][0], "AuxPrice")))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
                                 }
@@ -512,7 +515,8 @@ namespace AmiBroker.Controllers
 
                                 signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
                                 if (signal && (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime
-                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
+                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Cover][0], "AuxPrice")))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
                                 }
@@ -669,13 +673,14 @@ namespace AmiBroker.Controllers
                     }
                     else
                     {
-                        MainViewModel.Instance.MinorLog(log);
+                        //MainViewModel.Instance.MinorLog(log);
                         MainViewModel.Instance.MinorLog(new Log
                         {
                             Time = DateTime.Now,
-                            Text = message.TrimEnd('\n'),
+                            Text = "Action: " + orderAction.ToString() + "\n" + message.TrimEnd('\n'),
                             Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
-                        });
+                        });   
+
                         // if not duplicated order, will return false
                         if (!message.Contains("duplicated") && !message.ToLower().Contains("modify"))
                             proc_result = false;
@@ -1002,22 +1007,23 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Buy:
+                        
+                        if (strategyStat.LongPosition > 0)
+                        {
+                            message += "There is already a LONG position for strategy - " + strategy.Name;
+                            return false;
+                        }
 
                         if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
                         {
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
-                            if ((stopPrice - ((decimal)close)) > (20 * strategy.Symbol.MinTick))
+                            decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
+                            if ((stopPrice - ((decimal)close)) > (trigger * strategy.Symbol.MinTick))
                             {
                                 message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
                                 return false;
                             }
-                        }
-
-                        if (strategyStat.LongPosition > 0)
-                        {
-                            message += "There is already a LONG position for strategy - " + strategy.Name;
-                            return false;
                         }
 
                         if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0 && strategyStat.LongPosition == 0)
@@ -1108,21 +1114,23 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Short:
-                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
-                        {
-                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
-                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
-                            if ((((decimal)close) - stopPrice) > (20 * strategy.Symbol.MinTick))
-                            {
-                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
-                                return false;
-                            }
-                        }
-
+                        
                         if (strategyStat.ShortPosition > 0)
                         {
                             message += "There is already a SHORT position for strategy - " + strategy.Name;
                             return false;
+                        }
+
+                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        {
+                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
+                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
+                            decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
+                            if ((((decimal)close) - stopPrice) > (trigger * strategy.Symbol.MinTick))
+                            {
+                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
+                                return false;
+                            }
                         }
 
                         if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0 && strategyStat.ShortPosition == 0)
@@ -1231,6 +1239,18 @@ namespace AmiBroker.Controllers
                             account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Buy].LastOrDefault());
                             return false;
                         }
+
+                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        {
+                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
+                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
+                            decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
+                            if ((((decimal)close) - stopPrice) > (trigger * strategy.Symbol.MinTick))
+                            {
+                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
+                                return false;
+                            }
+                        }
                         //
                         // modify STOP order if LmtPrice and Stop Price are different
                         // skip for LIMIT order
@@ -1294,6 +1314,18 @@ namespace AmiBroker.Controllers
                             message += "There is a pending SHORT order being cancelled";
                             account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Short].LastOrDefault());
                             return false;
+                        }
+
+                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        {
+                            string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
+                            decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
+                            decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
+                            if ((stopPrice - ((decimal)close)) > (trigger * strategy.Symbol.MinTick))
+                            {
+                                message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
+                                return false;
+                            }
                         }
                         //
                         // modify STOP order if LmtPrice and Stop Price are different

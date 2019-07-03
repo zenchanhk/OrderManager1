@@ -30,6 +30,8 @@ namespace AmiBroker.Controllers
         public double RoundLotSize { get; set; }
         public string TradingHours { get; set; }
         public int ReqId { get; set; }
+        public string TimeZoneId { get; set; }
+        public string Multiplier { get; set; }
         public static SecurityType SecTypeConverter(string secType)
         {
             SecurityType securityType = SecurityType.Stock;
@@ -1552,6 +1554,7 @@ namespace AmiBroker.Controllers
                                 dOrder.Filled = filled;
                                 dOrder.Remaining = remaining;
                                 dOrder.AvgPrice = e.AverageFillPrice;
+                                dOrder.Time = DateTime.Now;
                                 mainVM.InsertOrder(dOrder);
                             });
                         }
@@ -1563,6 +1566,7 @@ namespace AmiBroker.Controllers
                     dOrder.Filled = filled;
                     dOrder.Remaining = remaining;
                     dOrder.AvgPrice = e.AverageFillPrice;
+                    dOrder.Time = DateTime.Now;
                 });
             }
 
@@ -1584,7 +1588,7 @@ namespace AmiBroker.Controllers
 
                     if (displayedOrder != null)
                     {
-                        if (displayedOrder.Status == OrderStatus.PreSubmitted)
+                        if (displayedOrder.Status == OrderStatus.PreSubmitted && e.Status != OrderStatus.Canceled)
                         {
                             Order o = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId].Order;
                             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
@@ -1603,10 +1607,7 @@ namespace AmiBroker.Controllers
                             duplicatedFound = true;
                             // update status
                             oi.OrderStatus = dOrder;
-                            lock (MainViewModel.updatedOrdersLock)
-                            {
-                                mainVM.UpdatedOrders.Add(dOrder);
-                            }
+                            mainVM.InsertUpdatedOrder(dOrder);
                         }
                         else
                         {
@@ -1623,20 +1624,14 @@ namespace AmiBroker.Controllers
                             {
                                 // update status
                                 oi.OrderStatus = dOrder;
-                                lock (MainViewModel.updatedOrdersLock)
-                                {
-                                    mainVM.UpdatedOrders.Add(dOrder);
-                                }
+                                mainVM.InsertUpdatedOrder(dOrder);
                             }
                             return;
                         }
                     }
                     else
                     {
-                        lock (MainViewModel.updatedOrdersLock)
-                        {
-                            mainVM.UpdatedOrders.Add(dOrder);
-                        }
+                        mainVM.InsertUpdatedOrder(dOrder);
                     }                        
 
                     oi.OrderStatus = dOrder;
@@ -1921,11 +1916,16 @@ namespace AmiBroker.Controllers
                 });
             }
             if (e.ErrorMsg != null && (e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been lost")
-                || e.ErrorMsg.Contains("Connectivity between Trader Workstation and server is broken")))
+                || e.ErrorMsg.Contains("Connectivity between Trader Workstation and server is broken")
+                || (e.ErrorMsg.Contains("Connectivity between") && e.ErrorMsg.Contains("has been lost"))))
             {
                 ConnectionStatus = "Error";
             }
             if (e.ErrorMsg != null && e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored"))
+            {
+                ConnectionStatus = "Connected";
+            }
+            if (e.ErrorMsg != null && e.ErrorMsg.ToLower().Contains("data farm connection is ok"))
             {
                 ConnectionStatus = "Connected";
             }
@@ -2171,6 +2171,8 @@ namespace AmiBroker.Controllers
                             ReqId = reqId
                         };
                         ibContract.MinTick = (decimal)arg.ContractDetails.MinTick;
+                        ibContract.TimeZoneId = arg.ContractDetails.TimeZoneId;
+                        ibContract.Multiplier = arg.ContractDetails.Summary.Multiplier;
                         tcs.TrySetResult((T)(object)ibContract);
                         /*
                         string[] ruleIds = arg.ContractDetails.MarketRuleIds.Split(new char[] { ',' });
