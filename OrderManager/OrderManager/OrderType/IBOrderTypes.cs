@@ -594,13 +594,14 @@ namespace AmiBroker.OrderManager
             Name = "Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
             Slippages.CollectionChanged += Slippages_CollectionChanged;
+            OrderType = OrderType.Stop;
             RealPrices.Add("AuxPrice", 0);
             RealPrices.Add("LmtPrice", 0);
         }
 
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
-            if (Slippages != null && Slippages.Count >= 0)
+            if (Slippages != null && Slippages.Count > 0)
                 OrderType = OrderType.StopLimit;
             else
                 OrderType = OrderType.Stop;
@@ -699,6 +700,7 @@ namespace AmiBroker.OrderManager
             Name = "Trailing Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
             Slippages.CollectionChanged += Slippages_CollectionChanged;
+            OrderType = OrderType.TrailingStop;
             RealPrices.Add("TrailStopPrice", 0);
             RealPrices.Add("AuxPercent", 0);
             RealPrices.Add("LmtPrice", 0);
@@ -706,7 +708,7 @@ namespace AmiBroker.OrderManager
 
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
-            if (Slippages != null && Slippages.Count >= 0)
+            if (Slippages != null && Slippages.Count > 0)
                 OrderType = OrderType.TrailingStop;
             else
                 OrderType = OrderType.TrailingStopLimit;

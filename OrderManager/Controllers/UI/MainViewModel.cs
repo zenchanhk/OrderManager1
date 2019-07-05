@@ -56,6 +56,10 @@ namespace AmiBroker.Controllers
         public readonly static object ordersLock = new object();
         public readonly static object updatedOrdersLock = new object();
         public readonly static object orderInfoListLock = new object();
+        public readonly static object minorLogLock = new object();
+        public readonly static object minorLogFileLock = new object();
+        public readonly static object msgFileLock = new object();
+        public readonly static object logFileLock = new object();
         // Icons
         public Image ImageSaveLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.ContentSaveAll, Util.Color.Indigo);
         public Image ImageRestoreLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.WindowRestore, Util.Color.Indigo);
@@ -82,7 +86,7 @@ namespace AmiBroker.Controllers
 
         public List<string> StopLossSource { set; get; } = new List<string>();
         public ObservableCollection<Log> LogList { set; get; }
-        public ObservableCollection<Log> MinorLogList { set; private get; } = new ObservableCollection<Log>();
+        public ObservableCollectionEx<Log> MinorLogList { set; private get; } = new ObservableCollectionEx<Log>();
         public ObservableCollectionEx<DisplayedOrder> Orders { set; get; }
 
         // store updated order to prevent duplicating
@@ -286,10 +290,13 @@ namespace AmiBroker.Controllers
                     {
                         try
                         {
-                            using (var sw = new StreamWriter(logfile, true))
+                            lock (logFileLock)
                             {
-                                sw.WriteLine(ListViewHelper.ObjectToLine(log));
-                            }
+                                using (var sw = new StreamWriter(logfile, true))
+                                {
+                                    sw.WriteLine(ListViewHelper.ObjectToLine(log));
+                                }
+                            }                            
                         }
                         catch (Exception ex)
                         {
@@ -317,34 +324,46 @@ namespace AmiBroker.Controllers
                 }
             }
 
-
-            Log l = MinorLogList.LastOrDefault(x => x.Source == log.Source);
-            if (l != null && l.Text == log.Text)
+            bool isAdded = false;
+            lock (minorLogLock)
             {
-                l.Time = log.Time;
-                found = true;
-            }
-
-            if (!OrderManager.MainWin.MinorLogPause && !found)
-                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                Log l = MinorLogList.FirstOrDefault(x => x.Source == log.Source);
+                if (l != null && l.Text == log.Text)
                 {
-                    MinorLogList.Insert(0, log);
-                    
-                    if (File.Exists(minorlogfile))
+                    //l.Time = log.Time;
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
-                        try
+                        MinorLogList.Remove(l);
+                        MinorLogList.Insert(0, log);
+                    });
+                    found = true;
+                }
+
+                if (!OrderManager.MainWin.MinorLogPause && !found)
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    {
+                        MinorLogList.Insert(0, log);
+                        isAdded = true;
+                    });
+            }            
+
+            if (isAdded && File.Exists(minorlogfile))
+            {
+                try
+                {
+                    lock (minorLogLock)
+                    {
+                        using (var sw = new StreamWriter(minorlogfile, true))
                         {
-                            using (var sw = new StreamWriter(minorlogfile, true))
-                            {
-                                sw.WriteLine(ListViewHelper.ObjectToLine(log));
-                            }
+                            sw.WriteLine(ListViewHelper.ObjectToLine(log));
                         }
-                        catch (Exception ex)
-                        {
-                            GlobalExceptionHandler.HandleException("Minor Log", ex);
-                        }                        
-                    }
-                });
+                    }                    
+                }
+                catch (Exception ex)
+                {
+                    GlobalExceptionHandler.HandleException("Minor Log", ex);
+                }
+            }
         }
         public void AddMessage(Message msg)
         {
@@ -356,10 +375,13 @@ namespace AmiBroker.Controllers
                 {
                     try
                     {
-                        using (var sw = new StreamWriter(msgfile, true))
+                        lock (msgFileLock)
                         {
-                            sw.WriteLine(ListViewHelper.ObjectToLine(msg));
-                        }
+                            using (var sw = new StreamWriter(msgfile, true))
+                            {
+                                sw.WriteLine(ListViewHelper.ObjectToLine(msg));
+                            }
+                        }                        
                     }
                     catch (Exception ex)
                     {

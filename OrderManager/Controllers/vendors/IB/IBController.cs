@@ -722,7 +722,8 @@ namespace AmiBroker.Controllers
                 }// END of update of order's prices
 
                 // The size of slippages of original and new must be equal
-                if (oi.OrderType.Slippages.Count != orderType.Slippages.Count)
+                if (oi.OrderType.Slippages != null && orderType.Slippages !=null 
+                    && oi.OrderType.Slippages.Count != orderType.Slippages.Count)
                 {
                     mainVM.Log(new Log
                     {
@@ -983,6 +984,17 @@ namespace AmiBroker.Controllers
                             break;
                     }
                     IBContract iBContract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+                    if (iBContract == null)
+                    {
+                        mainVM.Log(new Log
+                        {
+                            Text = "No security definition found for " + contract.LocalSymbol,
+                            Source = "IBController.PlaceOrder",
+                            Time = DateTime.Now
+                        });
+                        orderLog.OrderId = "-1";
+                        return new List<OrderLog> { orderLog };
+                    }
                     contract = iBContract.Contract;
                 }
                 else

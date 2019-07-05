@@ -27,12 +27,28 @@ namespace AmiBroker.Controllers
         public string Text { get; set; }
         public string Source { get; set; }
     }
-    public class Log
+    public class Log : NotifyPropertyChangedBase
     {
-        public DateTime Time { get; set; }
-        public string Text { get; set; }
-        public string Source { get; set; }
-        
+        private DateTime _pTime;
+        public DateTime Time
+        {
+            get { return _pTime; }
+            set { _UpdateField(ref _pTime, value); }
+        }
+
+        private string _pText;
+        public string Text
+        {
+            get { return _pText; }
+            set { _UpdateField(ref _pText, value); }
+        }
+
+        private string _pSource;
+        public string Source
+        {
+            get { return _pSource; }
+            set { _UpdateField(ref _pSource, value); }
+        }
     }
     public class SymbolInMkt : INotifyPropertyChanged
     {

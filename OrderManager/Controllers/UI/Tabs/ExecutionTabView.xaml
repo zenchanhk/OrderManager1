@@ -28,6 +28,7 @@
                     <GridViewColumn Header="Avg. Price" Width="60" DisplayMemberBinding="{Binding AvgPrice}" />
                     <GridViewColumn Header="Currency" Width="60" DisplayMemberBinding="{Binding Currency}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                    <GridViewColumn Header="Stop Price" Width="60" DisplayMemberBinding="{Binding StopPrice}" />
                     <GridViewColumn Header="Lmt. Price" Width="60" DisplayMemberBinding="{Binding LmtPrice}" />
                     <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
                     <GridViewColumn Header="Placed Time" Width="100" DisplayMemberBinding="{Binding PlacedTime, StringFormat={}{0:dd HH:mm:ss.fff}}" />

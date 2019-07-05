@@ -36,7 +36,7 @@ namespace AmiBroker.Controllers
     {
         public int RealOrderId { get; set; }  // order id
         public string OrderId { get; set; }    // controller name + order id
-        public int Slippage { get; set; }
+        public int Slippage { get; set; } = -1;
         public decimal OrgPrice { get; set; }
         public decimal LmtPrice { get; set; }
         public decimal AuxPrice { get; set; }
@@ -574,8 +574,8 @@ namespace AmiBroker.Controllers
                 Log log = new Log
                 {
                     Time = DateTime.Now,
-                    Text = orderAction.ToString() + " signal generated at " + logTime.ToString("yyyMMdd HH:mm:ss"),
-                    Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
+                    Text = orderAction.ToString() + " signal generated", // + logTime.ToString("yyyMMdd HH:mm:ss"),
+                    Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderAction.ToString()
                 };
 
                 if (orderAction != OrderAction.APSLong && orderAction != OrderAction.APSShort
@@ -677,8 +677,9 @@ namespace AmiBroker.Controllers
                         MainViewModel.Instance.MinorLog(new Log
                         {
                             Time = DateTime.Now,
-                            Text = "Action: " + orderAction.ToString() + "\n" + message.TrimEnd('\n'),
-                            Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
+                            Text = message.TrimEnd('\n'),
+                            Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "."
+                            + orderAction.ToString()
                         });   
 
                         // if not duplicated order, will return false
@@ -759,6 +760,7 @@ namespace AmiBroker.Controllers
                 IController controller = account.Controller;
                 //System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
 
+                bool isStopOrder = BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice");
                 switch (action)
                 {
                     case OrderAction.APSLong:
@@ -1221,26 +1223,7 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Sell:
-                        // APS order has to be cancelled
-                        if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
-                        {
-                            warning += "There is a pending APSLong order being cancelled";
-                            CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong, action);
-                        }
-                        // Stoploss order has to be cancelled
-                        if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
-                        {
-                            warning += "There is a pending StoplossLong order being cancelled";
-                            CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong, action);
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
-                        {
-                            message += "There is a pending BUY order being cancelled";
-                            account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Buy].LastOrDefault());
-                            return false;
-                        }
-
-                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        if (isStopOrder)
                         {
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
@@ -1251,6 +1234,68 @@ namespace AmiBroker.Controllers
                                 return false;
                             }
                         }
+                        // APS order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending APSLong order";
+                                return false;
+                            }
+                            else
+                            {
+                                warning += "There is a pending APSLong order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong, action);
+                            }
+                        }
+                        // Stoploss order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
+                        {
+
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending StoplossSLong order";
+                                return false;
+                            }
+                            else
+                            {
+                                warning += "There is a pending StoplossLong order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong, action);
+                            }
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.PreForceExitLongActivated) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending PreForceExitLong order";
+                                return false;
+                            }                                
+                            else
+                            {
+                                warning += "There is a pending PreForceExitLong order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitLong, action);
+                            }                                
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.FinalForceExitLongActivated) != 0)
+                        {
+                            message += "There is a pending FinalForceExitLong order";
+                            return false;
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        {
+                            if (isStopOrder)
+                                message += "There is a pending BUY order";
+                            else
+                            {
+                                message += "There is a pending BUY order being cancelled";
+                                account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Buy].LastOrDefault());
+                            }                            
+                            return false;
+                        }
+                        
                         //
                         // modify STOP order if LmtPrice and Stop Price are different
                         // skip for LIMIT order
@@ -1297,26 +1342,7 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Cover:
-                        // APS order has to be cancelled
-                        if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
-                        {
-                            warning += "There is a pending APSShort order being cancelled";
-                            CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort, action);
-                        }
-                        // Stoploss order has to be cancelled
-                        if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
-                        {
-                            warning += "There is a pending StoplossShort order being cancelled";
-                            CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort, action);
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
-                        {
-                            message += "There is a pending SHORT order being cancelled";
-                            account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Short].LastOrDefault());
-                            return false;
-                        }
-
-                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        if (isStopOrder)
                         {
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
@@ -1327,6 +1353,70 @@ namespace AmiBroker.Controllers
                                 return false;
                             }
                         }
+                        // APS order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending APSShort order";
+                                return false;
+                            }
+                            else
+                            {
+                                warning += "There is a pending APSShort order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort, action);
+                            }
+                        }
+                        // Stoploss order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending StoplossShort order";
+                                return false;
+                            }
+                            else
+                            {
+                                warning += "There is a pending StoplossShort order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort, action);
+                            }
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.PreForceExitShortActivated) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending PreForceExitShort order";
+                                return false;
+                            }   
+                            else
+                            {
+                                warning += "There is a pending PreForceExitShort order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitShort, action);
+                            }
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.FinalForceExitShortActivated) != 0)
+                        {
+                            message += "There is a pending FinalForceExitShort order";
+                            return false;
+                        }
+
+                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        {
+                            if (isStopOrder)
+                            {
+                                message += "There is a pending SHORT order";
+                            }   
+                            else
+                            {
+                                message += "There is a pending SHORT order being cancelled";
+                                account.Controller.CancelOrders(strategyStat.OrderInfos[OrderAction.Short].LastOrDefault());
+                            }
+                            
+                            return false;
+                        }
+                        
                         //
                         // modify STOP order if LmtPrice and Stop Price are different
                         // skip for LIMIT order
