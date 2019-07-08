@@ -416,6 +416,7 @@ namespace AmiBroker.OrderManager
             }            
         }
     }
+
     public class BaseOrderType : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -467,7 +468,31 @@ namespace AmiBroker.OrderManager
         public bool ReplaceAllowed { get; set; } = true;
         public GoodTime GoodTilDate { get; set; } = new GoodTime();
         public GoodTime GoodAfterTime { get; set; } = new GoodTime();  // yyyyMMdd HH:mm:ss
-        public ObservableCollection<CSlippage> Slippages { get; set; }
+
+        private ObservableCollection<CSlippage> cSlippages = null;
+        public ObservableCollection<CSlippage> Slippages
+        {
+            get { return cSlippages; }
+            set
+            {  
+                // direct copy results in losing collection_changed event handling
+                if (cSlippages != null)
+                {
+                    cSlippages.Clear();
+                    if (value == null)
+                        cSlippages = null;
+                    else
+                    {
+                        for (int i = 0; i < value.Count; i++)
+                        {
+                            cSlippages.Add(value[i]);
+                        }
+                    }
+                }
+                else
+                    cSlippages = value;
+            }
+        }
         [JsonIgnore]
         public Dictionary<string, decimal> RealPrices { get; } = new Dictionary<string, decimal>();
         public BaseOrderType()
@@ -475,10 +500,11 @@ namespace AmiBroker.OrderManager
             GoodAfterTime.DateTimeFormat = DateTimeFormat;
             GoodTilDate.DateTimeFormat = DateTimeFormat;
         }
-
-        public virtual BaseOrderType Clone()
+        protected virtual void init() { }
+        public virtual BaseOrderType DeepClone()
         {
             BaseOrderType ot = (BaseOrderType)this.MemberwiseClone();
+            ot.init();
             return ot;
         }
 

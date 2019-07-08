@@ -735,10 +735,13 @@ namespace AmiBroker.Controllers
                 }
 
                 List<int> slippages = new List<int>();
+                List<int> posSizes = new List<int>();
+                List<decimal> lmtPrices = new List<decimal>();
                 foreach (var orderInfo in orderInfos)
                 {
                     orderInfo.OrderLog.OrgPrice = lmtPrice;
                     Order order = orderInfo.Order;
+                    posSizes.Add(order.TotalQuantity);
                     if (auxPrice > 0)
                         order.AuxPrice = auxPrice;
                     if (trailingPercent > 0)
@@ -752,6 +755,7 @@ namespace AmiBroker.Controllers
                         if (order.Action == ActionSide.Sell)
                             order.LimitPrice = lmtPrice - minTick * orderInfo.OrderLog.Slippage;
                         slippages.Add(orderInfo.OrderLog.Slippage);
+                        lmtPrices.Add(order.LimitPrice);
                     }
 
                     // re-calc the quantity to prevent partially filled order being modified with original quantity
@@ -793,9 +797,10 @@ namespace AmiBroker.Controllers
                 {
                     Source = src,
                     Time = DateTime.Now,
-                    Text = string.Format("Orders [{0}] modified with stop price:{1}, lmt price:{2}, slippages:[{3}]",
+                    Text = string.Format("Orders [{0}, {5}] modified with stop price:{1}, lmt price:[{2}], slippages:[{3}], PosSizes:[{4}]",
                     string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList()),
-                    auxPrice, lmtPrice, string.Join(", ", slippages))
+                    auxPrice, string.Join(", ", lmtPrices), string.Join(", ", slippages), string.Join(", ", posSizes),
+                    oi.OrderType.ToString())
                 });
                 return true;
             }
@@ -812,6 +817,7 @@ namespace AmiBroker.Controllers
             OrderInfo oi = null;
             try
             {
+                // combined all pending orders into one Market Order
                 int quantity = 0;
                 foreach (var orderInfo in orderInfos)
                 {
@@ -844,14 +850,15 @@ namespace AmiBroker.Controllers
                         {
                             RealOrderId = id,
                             OrderId = olog.OrderId,
-                            BatchNo = OrderManager.BatchNo,
+                            BatchNo = oi.BatchNo, // must same as being canceled order
                             Strategy = oi.Strategy,
                             Account = oi.Account,
                             OrderAction = oi.OrderAction,
                             Contract = oi.Contract,
                             Order = order,
                             OrderType = new IBMarketOrder(),
-                            OrderLog = olog
+                            OrderLog = olog,
+                            IsAdjustedOrder = true
                         };
 
                         OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize);
@@ -937,6 +944,7 @@ namespace AmiBroker.Controllers
                         posSize = -1;
                 }
 
+                // save order for another IBController use
                 if (Orders.ContainsKey(batchNo))
                     order = Orders[batchNo];
                 else
@@ -1128,7 +1136,7 @@ namespace AmiBroker.Controllers
                                             OrderAction = orderAction,
                                             //TotalPosSize = ttlPosSize,
                                             Contract = contract,
-                                            Order = order,
+                                            Order = order.CloneObject(),
                                             OrderType = orderType,
                                             OrderLog = olog
                                         };
@@ -1163,7 +1171,7 @@ namespace AmiBroker.Controllers
                                         OrderAction = orderAction,
                                         //TotalPosSize = ttlPosSize,
                                         Contract = contract,
-                                        Order = order,
+                                        Order = order.CloneObject(),
                                         OrderType = orderType,
                                         OrderLog = olog
                                     };
@@ -1214,7 +1222,7 @@ namespace AmiBroker.Controllers
                                         Account = accountInfo,
                                         OrderAction = orderAction,
                                         Contract = contract,
-                                        Order = order,
+                                        Order = order.CloneObject(),
                                         OrderType = orderType,
                                         OrderLog = orderLog
                                     };
@@ -1247,7 +1255,7 @@ namespace AmiBroker.Controllers
                                     Account = accountInfo,
                                     OrderAction = orderAction,
                                     Contract = contract,
-                                    Order = order,
+                                    Order = order.CloneObject(),
                                     OrderType = orderType,
                                     OrderLog = orderLog
                                 };
@@ -1600,6 +1608,7 @@ namespace AmiBroker.Controllers
 
                     if (displayedOrder != null)
                     {
+                        /*
                         if (displayedOrder.Status == OrderStatus.PreSubmitted && e.Status != OrderStatus.Canceled)
                         {
                             Order o = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId].Order;
@@ -1608,7 +1617,7 @@ namespace AmiBroker.Controllers
                                 dOrder.StopPrice = o.AuxPrice;
                                 dOrder.LmtPrice = o.LimitPrice;
                             });
-                        }
+                        }*/
                         // previous status: partially filled
                         // current status: canceled
                         // will result in same filled and canceled amount
@@ -1696,13 +1705,15 @@ namespace AmiBroker.Controllers
                             int cur_remaining = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].Remaining;
                             decimal avgPrice = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].AvgPrice;
 
-                            
+                            double prev_long_pos = strategyStat.LongPosition;
+                            double prev_short_pos = strategyStat.ShortPosition;
                             mainVM.MinorLog(new Log
                             {
                                 Text = string.Format("Staus:{8}, OrderAction:{7}, Status:{6}, prev_filled:{0}, prev_re:{1}, " +
-                                "current_filled:{2}, current_re:{3}, filled:{4}, remaining:{5}, duplicated:{9}",
+                                "current_filled:{2}, current_re:{3}, long position:{10}, short position:{11}, filled:{4}, remaining:{5}, duplicated:{9}",
                                 prev_filled, prev_remaining, cur_filled, cur_remaining, filled, remaining, dOrder.Status.ToString(),
-                                oi.OrderAction.ToString(), strategyStat.Status.ToString(), duplicatedFound.ToString()),
+                                oi.OrderAction.ToString(), strategyStat.Status.ToString(), duplicatedFound.ToString(),
+                                strategyStat.LongPosition, strategyStat.ShortPosition),
                                 Source = string.Format("BatchNo:{0}, OrderId:{1}", oi.BatchNo, oi.RealOrderId.ToString()),
                                 Time = DateTime.Now,
                             });
@@ -1736,14 +1747,16 @@ namespace AmiBroker.Controllers
                                 }
 
                                 else if (oi.OrderAction == OrderAction.Sell || oi.OrderAction == OrderAction.APSLong
-                                    || oi.OrderAction == OrderAction.StoplossLong)
+                                    || oi.OrderAction == OrderAction.StoplossLong || oi.OrderAction == OrderAction.PreForceExitLong
+                                    || oi.OrderAction == OrderAction.FinalForceExitLong)
                                 {
                                     strategyStat.LongPosition -= cur_filled - prev_filled;
                                     scriptStat.LongPosition -= cur_filled - prev_filled;
                                 }
 
                                 else if (oi.OrderAction == OrderAction.Cover || oi.OrderAction == OrderAction.APSShort
-                                    || oi.OrderAction == OrderAction.StoplossShort)
+                                    || oi.OrderAction == OrderAction.StoplossShort || oi.OrderAction == OrderAction.PreForceExitShort
+                                    || oi.OrderAction == OrderAction.FinalForceExitShort)
                                 {
                                     strategyStat.ShortPosition -= cur_filled - prev_filled;
                                     scriptStat.ShortPosition -= cur_filled - prev_filled;
@@ -1759,7 +1772,8 @@ namespace AmiBroker.Controllers
 
                             mainVM.MinorLog(new Log
                             {
-                                Text = string.Format("After status updated: {0}", strategyStat.Status.ToString()),
+                                Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}", 
+                                strategyStat.Status.ToString(), strategyStat.LongPosition, strategyStat.ShortPosition),
                                 Source = string.Format("BatchNo:{0}, OrderId:{1}", oi.BatchNo, oi.RealOrderId.ToString()),
                                 Time = DateTime.Now,
                             });
@@ -1874,10 +1888,12 @@ namespace AmiBroker.Controllers
                         }
 
                         // issue an ApiCanceled event
-                        if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
+                        if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive ||
+                            oi.OrderStatus.Status == OrderStatus.PreSubmitted)
                         {
-                            args.Filled = 0;
-                            args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                            args.Filled = oi.OrderStatus == null ? 0 : (int)oi.OrderStatus.Filled;
+                            args.Remaining = oi.OrderStatus == null ? oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize :
+                                (int)oi.OrderStatus.Remaining;
                             args.Status = OrderStatus.ApiCancelled;
                             args.OrderId = e.TickerId;
                             args.WhyHeld = e.ErrorMsg.ToLower().Contains("duplicate order id") ?

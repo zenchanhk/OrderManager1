@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using System.IO;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace AmiBroker.OrderManager
 {
@@ -223,9 +226,11 @@ namespace AmiBroker.OrderManager
         public OrderType OrderType { get; protected set; }
         [JsonIgnore]
         public IList<IBContractType> Products { get; protected set; } = new List<IBContractType>();
-        public override BaseOrderType Clone()
+        public override BaseOrderType DeepClone()
         {
-            IBOrderType ot = (IBOrderType)this.MemberwiseClone();
+            /*
+            IBOrderType ot = (IBOrderType)MemberwiseClone();
+            ot.init();
             ot.GoodAfterTime = Helper.CloneObject<GoodTime>(GoodAfterTime);
             ot.GoodTilDate = Helper.CloneObject<GoodTime>(GoodTilDate);
             if (Slippages != null)
@@ -240,8 +245,17 @@ namespace AmiBroker.OrderManager
             {
                 ot.Slippages = null;
             }
+            //return ot;*/
+
+
+            // initialize inner objects individually
+            // for example in default constructor some list property initialized with some values,
+            // but in 'source' these items are cleaned -
+            // without ObjectCreationHandling.Replace default constructor values will be added to result
+            var deserializeSettings = new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace };
             
-            return ot;
+            return (IBOrderType)JsonConvert.DeserializeObject(JsonConvert.SerializeObject(this), GetType(), deserializeSettings);
+            
         }
         public override void CopyTo(BaseOrderType dest)
         {
@@ -597,6 +611,13 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.Stop;
             RealPrices.Add("AuxPrice", 0);
             RealPrices.Add("LmtPrice", 0);
+            //init();
+        }
+
+        protected override void init()
+        {
+            Slippages = new ObservableCollection<CSlippage>();
+            Slippages.CollectionChanged += Slippages_CollectionChanged;
         }
 
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)

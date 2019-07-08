@@ -245,7 +245,7 @@ namespace AmiBroker.Controllers
                 
                 if (src_item != null && dest_item == null)
                 {
-                    destOrderTypes.Add(src_item.Clone());
+                    destOrderTypes.Add(src_item.DeepClone());
                     info.Invoke(ss, new object[] { dest + "OrderTypes" });
                 }                
                 if (src_item != null && dest_item != null)
@@ -258,7 +258,7 @@ namespace AmiBroker.Controllers
                     else
                     {
                         destOrderTypes.Remove(dest_item);
-                        destOrderTypes.Add(src_item.Clone());
+                        destOrderTypes.Add(src_item.DeepClone());
                         info.Invoke(ss, new object[] { dest + "OrderTypes" });
                     }
                 }

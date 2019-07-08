@@ -520,12 +520,12 @@ namespace AmiBroker.Controllers
                     // add new item
                     if (ot == null || (ot != null && ot.GetType() != value[0].GetType()))
                     {
-                        BaseOrderType newItem = ((BaseOrderType)value[0]).Clone();
-                        /*
+                        BaseOrderType newItem = ((BaseOrderType)value[0]).DeepClone(); 
+                        // copy timezone
                         if (si.GetType() == typeof(Script))
                             newItem.TimeZone = ((Script)si).Symbol.TimeZone;
                         if (si.GetType() == typeof(Strategy))
-                            newItem.TimeZone = ((Strategy)si).Script.Symbol.TimeZone;*/
+                            newItem.TimeZone = ((Strategy)si).Script.Symbol.TimeZone;
                         orderTypes.Add(newItem);
                         return newItem;
                     }

@@ -75,6 +75,8 @@ namespace AmiBroker.OrderManager
         public DisplayedOrder OrderStatus { get; set; }
         public string Error { get; set; }
         public DateTime PlacedTime { get; set; }
+        public bool ModifiedAsMarketOrder { get; set; } = false;    // if modified as Market Order
+        public bool IsAdjustedOrder { get; set; } = false;  // indicator if modified from other type order
 
         public Contract Contract = null;
         public Order Order = null;
@@ -1127,7 +1129,8 @@ namespace AmiBroker.OrderManager
                             foreach (var info in orderInfos)
                             {
                                 controller.CancelOrder(info.RealOrderId);
-                                ids.Add(info.RealOrderId);
+                                info.ModifiedAsMarketOrder = true;
+                                ids.Add(info.RealOrderId);  // used for logging
                             }
                             controller.ModifyOrder(orderInfos);
                             message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
@@ -1154,11 +1157,20 @@ namespace AmiBroker.OrderManager
             List<Log> logs = new List<Log>();
             try
             {
-                foreach (var item in AccountStat)
+                MainViewModel.Instance.Log(new Log
                 {
-                    IController controller = item.Value.Account.Controller;
+                    Text = string.Format("Close all position for strategy[{0}]", Name),
+                    Time = DateTime.Now,
+                    Source = "Strategy.CloseAllPosition"
+                });
+                foreach (var item in AccountStat)
+                {                    
+                    // close all position for current account
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
+                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitLong, DateTime.Now, orderType);
+                    /*
+                    IController controller = item.Value.Account.Controller;
                     BaseStat scriptStat = Script.AccountStat[item.Value.Account.Name];
                     BaseStat strategyStat = AccountStat[item.Value.Account.Name];
 
@@ -1268,7 +1280,7 @@ namespace AmiBroker.OrderManager
                                 Text = "No StoplossShort order info found for a StoplossShort Pending status",
                                 Time = DateTime.Now
                             });
-                    }
+                    }*/
                 }
             }
             catch (Exception ex)
@@ -1531,12 +1543,12 @@ namespace AmiBroker.OrderManager
                     strategy.BuyOrderTypes.Clear();
                     foreach (var ot in BuyOrderTypes)
                     {
-                        strategy.BuyOrderTypes.Add(ot.Clone());
+                        strategy.BuyOrderTypes.Add(ot.DeepClone());
                     }
                     strategy.SellOrderTypes.Clear();
                     foreach (var ot in SellOrderTypes)
                     {
-                        strategy.SellOrderTypes.Add(ot.Clone());
+                        strategy.SellOrderTypes.Add(ot.DeepClone());
                     }
                 }
                 if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
@@ -1551,12 +1563,12 @@ namespace AmiBroker.OrderManager
                     strategy.ShortOrderTypes.Clear();
                     foreach (var ot in ShortOrderTypes)
                     {
-                        strategy.ShortOrderTypes.Add(ot.Clone());
+                        strategy.ShortOrderTypes.Add(ot.DeepClone());
                     }
                     strategy.CoverOrderTypes.Clear();
                     foreach (var ot in CoverOrderTypes)
                     {
-                        strategy.CoverOrderTypes.Add(ot.Clone());
+                        strategy.CoverOrderTypes.Add(ot.DeepClone());
                     }
                 }
                 strategy.MaxEntriesPerDay = MaxEntriesPerDay;

@@ -1463,12 +1463,8 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.PreForceExitLong:
-                    case OrderAction.FinalForceExitLong:
-                        if (strategyStat.LongPosition == 0)
-                        {
-                            message += "Info[Force Exit Long]: there is no open LONG position for strategy - " + strategy.Name;
-                            return false;
-                        }
+                    case OrderAction.FinalForceExitLong:        
+                        // cancel all pending action first
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                         {
@@ -1487,6 +1483,12 @@ namespace AmiBroker.Controllers
                             warning += "There is a pending SELL order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.Sell, action);
                         }
+                        // Cancel pending long order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        {
+                            warning += "There is a pending Long order being cancelled.\n";
+                            CancelConflictOrder(strategy, strategyStat, OrderAction.Buy, action);
+                        }
                         // in case of FinalForceExitLong
                         if (action == OrderAction.FinalForceExitLong)
                         {
@@ -1497,14 +1499,16 @@ namespace AmiBroker.Controllers
                                 CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitLong, action);
                             }
                         }
+                        // check if long position exists
+                        if (strategyStat.LongPosition == 0)
+                        {
+                            message += "Info[Force Exit Long]: there is no open LONG position for strategy - " + strategy.Name;
+                            return false;
+                        }
                         break;
                     case OrderAction.PreForceExitShort:
                     case OrderAction.FinalForceExitShort:
-                        if (strategyStat.ShortPosition == 0)
-                        {
-                            message += "Info[Force Exit Short]: there is no open SHORT position for strategy - " + strategy.Name;
-                            return false;
-                        }
+                        // CANCEL all pending action
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                         {
@@ -1523,6 +1527,12 @@ namespace AmiBroker.Controllers
                             warning += "There is a pending COVER order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.Cover, action);
                         }
+                        // Cancel pending short order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        {
+                            warning += "There is a pending SHORT order being cancelled.\n";
+                            CancelConflictOrder(strategy, strategyStat, OrderAction.Short, action);
+                        }
                         // in case of FinalForceExitShort
                         if (action == OrderAction.FinalForceExitShort)
                         {
@@ -1532,6 +1542,13 @@ namespace AmiBroker.Controllers
                                 warning += "There is a pending PreForceExitShort order being cancelled.\n";
                                 CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitShort, action);
                             }
+                        }
+
+                        // check if short position exists
+                        if (strategyStat.ShortPosition == 0)
+                        {
+                            message += "Info[Force Exit Short]: there is no open SHORT position for strategy - " + strategy.Name;
+                            return false;
                         }
                         break;
                 }

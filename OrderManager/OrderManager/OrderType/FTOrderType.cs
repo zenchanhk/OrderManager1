@@ -35,7 +35,7 @@ namespace AmiBroker.OrderManager
         public string FTCode { get; protected set; }
         [JsonIgnore]
         public IList<FTContractType> Products { get; protected set; } = new List<FTContractType>();
-        public override BaseOrderType Clone()
+        public override BaseOrderType DeepClone()
         {
             FTOrderType ot = (FTOrderType)this.MemberwiseClone();
             return ot;
