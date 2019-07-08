@@ -815,6 +815,7 @@ namespace AmiBroker.Controllers
         public bool ModifyOrder(IEnumerable<OrderInfo> orderInfos)
         {
             OrderInfo oi = null;
+            List<int> ids = new List<int>();
             try
             {
                 // combined all pending orders into one Market Order
@@ -827,6 +828,7 @@ namespace AmiBroker.Controllers
                                 orderInfo.OrderLog.PosSize * orderInfo.Strategy.Symbol.RoundLotSize;
                     }
                     oi = orderInfo;
+                    ids.Add(orderInfo.RealOrderId);
                 }
 
                 Order order = oi.Order.CloneObject();
@@ -861,7 +863,7 @@ namespace AmiBroker.Controllers
                             IsAdjustedOrder = true
                         };
 
-                        OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize);
+                        OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
                         oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(info);
                         mainVM.AddOrderInfo(olog.OrderId, info);
 
@@ -1695,7 +1697,7 @@ namespace AmiBroker.Controllers
                                     // only canceled should be calculated
                                    // OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
                                 //else
-                                    OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, 0, remaining, e.AverageFillPrice);
+                                OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, 0, remaining, e.AverageFillPrice, oi.ModifiedAsMarketOrder);
                             }
                             else
                                 OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, remaining, 0, e.AverageFillPrice);
@@ -1949,7 +1951,8 @@ namespace AmiBroker.Controllers
             {
                 ConnectionStatus = "Error";
             }
-            if (e.ErrorMsg != null && e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored"))
+            if (e.ErrorMsg != null && e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored")
+                || (e.ErrorMsg.Contains("Connectivity between") && e.ErrorMsg.Contains("has been restored")))
             {
                 ConnectionStatus = "Connected";
             }

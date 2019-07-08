@@ -63,6 +63,14 @@ namespace AmiBroker.Controllers
         public int Filled { get; private set; }
         public int Canceled { get; private set; }
         public decimal AvgPrice { get; private set; }
+
+        private HashSet<int> Replacement = new HashSet<int>(); // market orders
+        private HashSet<int> CanceledOrders = new HashSet<int>(); // orders canceld modified as market orders
+        public bool IsCompleted { get
+            {
+                return Remaining == 0 && Replacement.SetEquals(CanceledOrders);
+            }
+        }
         public void Modify(int orderId, int newTotal)
         {
             if (AllPosSizes.ContainsKey(orderId))
@@ -80,7 +88,10 @@ namespace AmiBroker.Controllers
                 });
             }
         }
-        public void AddNew(int orderId, int total)
+        /*
+         * canceled: list of canceled orders being modified as Market Orders
+         */
+        public void AddNew(int orderId, int total, List<int> canceledOrders = null)
         {
             if (AllPosSizes.ContainsKey(orderId))
             {
@@ -92,8 +103,15 @@ namespace AmiBroker.Controllers
                 AllPosSizes.Add(orderId, new OrderPosSize { Total = total, Filled = 0, Remaining = total });
                 Total += total;
                 Remaining += total;
+                if (canceledOrders != null)
+                {
+                    foreach (int id in canceledOrders)
+                    {
+                        Replacement.Add(id);
+                    }
+                }
             }
-            /*
+            /*is
             MainViewModel.Instance.MinorLog(new Log
             {
                 Text = string.Format("total:{0}, Total:{1}, Remaining:{2}", total, Total, Remaining),
@@ -101,7 +119,7 @@ namespace AmiBroker.Controllers
                 Time = DateTime.Now
             });*/
         }
-        public void Add(int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0)
+        public void Add(int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0, bool isModified = false)
         {
             int prev_remaining = -1;
             int prev_filled = -1;
@@ -141,6 +159,8 @@ namespace AmiBroker.Controllers
                 AllPosSizes[orderId].Remaining = remaining;
                 AllPosSizes[orderId].Filled = filled;
                 AllPosSizes[orderId].Canceled = canceled;
+
+                if (isModified) CanceledOrders.Add(orderId);
             }
             else
                 throw new Exception(string.Format("OrderId {0} cannot be found in AllPosSize", orderId));
@@ -302,7 +322,12 @@ namespace AmiBroker.Controllers
                 }
             }
         }
-        public static void AddBatchPosSize(string key, int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0)
+        /*
+         * isModified: indicate canceled order is modified as market order
+         * canceledOrders: orders being modified as MarketOrder
+         */
+        public static void AddBatchPosSize(string key, int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0, decimal avgPrice = 0, 
+            bool isModified = false, List<int> canceledOrders = null)
         {
             bool _locked = false;
             Monitor.Enter(lockPS, ref _locked);
@@ -311,16 +336,16 @@ namespace AmiBroker.Controllers
                 if (BatchPosSize.ContainsKey(key))
                 {
                     if (filled == 0 && remaining == 0 && canceled == 0)
-                        BatchPosSize[key].AddNew(orderId, total);
+                        BatchPosSize[key].AddNew(orderId, total, canceledOrders);
                     else
-                        BatchPosSize[key].Add(orderId, total, filled, remaining, canceled, avgPrice);
+                        BatchPosSize[key].Add(orderId, total, filled, remaining, canceled, avgPrice, isModified);
                 }
                 else
                 {
                     if (total == 0)
                         throw new Exception("Cannot add total zero to BatchPosSize");
                     BatchPosSize.Add(key, new BatchPosSize());
-                    BatchPosSize[key].AddNew(orderId, total);
+                    BatchPosSize[key].AddNew(orderId, total, canceledOrders);
                 }
             }
             finally
