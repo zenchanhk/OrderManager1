@@ -1796,7 +1796,8 @@ namespace AmiBroker.Controllers
         {
             bool isInPortfolio = true;
             string symbol_name = e.Contract.Symbol;
-            SymbolInMkt symbol = mainVM.Portfolio.FirstOrDefault<SymbolInMkt>(x => x.Symbol == symbol_name);
+            SymbolInMkt symbol = mainVM.Portfolio.FirstOrDefault<SymbolInMkt>(x => x.Symbol == symbol_name &&
+                                                                                x.Account == e.AccountName);
             if (symbol == null)
             {
                 symbol = new SymbolInMkt();
@@ -1951,8 +1952,8 @@ namespace AmiBroker.Controllers
             {
                 ConnectionStatus = "Error";
             }
-            if (e.ErrorMsg != null && e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored")
-                || (e.ErrorMsg.Contains("Connectivity between") && e.ErrorMsg.Contains("has been restored")))
+            if (e.ErrorMsg != null && (e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored")
+                || (e.ErrorMsg.ToLower().Contains("connectivity") && e.ErrorMsg.ToLower().Contains("restore"))))
             {
                 ConnectionStatus = "Connected";
             }
