@@ -1855,10 +1855,9 @@ namespace AmiBroker.Controllers
                     if (e.ErrorMsg.ToLower().Contains("exception") || e.ErrorMsg.ToLower().Contains("notconnected"))
                         AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
 
-                    // deal with insufficent buying power
+                    // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)
                     bool canceledByError = false;                    
-                    if (e.ErrorMsg.ToLower().Contains("order rejected") &&
-                        e.ErrorMsg.ToLower().Contains("insufficient"))
+                    if (e.ErrorMsg.ToLower().Contains("order rejected"))
                     {
                         // only whole order got canceled
                         if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
@@ -1867,7 +1866,7 @@ namespace AmiBroker.Controllers
                             args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
                             args.Status = OrderStatus.ApiCancelled;
                             args.OrderId = e.TickerId;
-                            args.WhyHeld = "canceled due to insufficient equity";
+                            args.WhyHeld = e.ErrorMsg.ToLower().Contains("insufficient") ? "canceled due to insufficient equity" : "the exchange is closed";
                             eh_OrderStatus(this, args);
                             canceledByError = true;
                         }                                              
