@@ -399,7 +399,7 @@ namespace AmiBroker.OrderManager
                         }
                     }
 
-                    if ((DateTime.Now - lmt_time).TotalMinutes < 5 && final_time > final_sent_dt && final_time <= DateTime.Now)
+                    if ((DateTime.Now - final_time).TotalMinutes < 5 && final_time > final_sent_dt && final_time <= DateTime.Now)
                     {
                         if (ActionType == ActionType.Long)
                         {

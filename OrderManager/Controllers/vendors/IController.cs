@@ -315,19 +315,23 @@ namespace AmiBroker.Controllers
                     strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
                 }
             }
-            else if (orderAction == OrderAction.PreForceExitLong && strategyStat.LongPosition == 0)
+            else if (orderAction == OrderAction.PreForceExitLong &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].IsCompleted)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.PreForceExitLongActivated;
             }
-            else if (orderAction == OrderAction.PreForceExitShort && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.PreForceExitShort &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].IsCompleted)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.PreForceExitShortActivated;
             }
-            else if (orderAction == OrderAction.FinalForceExitLong && strategyStat.LongPosition == 0)
+            else if (orderAction == OrderAction.FinalForceExitLong &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].IsCompleted)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitLongActivated;
             }
-            else if (orderAction == OrderAction.FinalForceExitShort && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.FinalForceExitShort &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].IsCompleted)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitShortActivated;                
             }

@@ -559,7 +559,7 @@ namespace AmiBroker.Controllers
                     }
 
                     var tpl = JsonConvert.DeserializeObject(content, Type.GetType(ns + "." + typeName), JSONConstants.saveSerializerSettings);
-                    string name = ((SymbolInAction)tpl).Name;
+                    string name = ((dynamic)tpl).Name;
 
                     var result = template.TemplateList.FirstOrDefault(x => x.Name == filename);
                     if (result != null)
@@ -1228,22 +1228,29 @@ namespace AmiBroker.Controllers
                     return;
                 }
 
+                string quan = symbol.Position.ToString();
+                DialogsHelper.ShowInputDialog("Input canceled quantity", ref quan);
+                double quantity = symbol.Position;
+                if (!double.TryParse(quan, out quantity))
+                    quantity = symbol.Position;
+
                 if (symbolInAction.MaxOrderSize > 0)
                 {
-                    for (int i = 0; i <= (int)(Math.Abs(symbol.Position) / symbolInAction.MaxOrderSize); i++)
+                    for (int i = 0; i <= (int)(Math.Abs(quantity) / symbolInAction.MaxOrderSize); i++)
                     {
-                        orderType.TotalQuantity = Math.Min(symbolInAction.MaxOrderSize, Math.Abs(symbol.Position) - symbolInAction.MaxOrderSize * i);
-                        controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(symbol.Position), symbol.Contract);
-                        if (Math.Abs(symbol.Position) <= symbolInAction.MaxOrderSize * (i + 1)) break;
+                        orderType.TotalQuantity = Math.Min(symbolInAction.MaxOrderSize, Math.Abs(quantity) - symbolInAction.MaxOrderSize * i);
+                        controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, orderType.TotalQuantity, symbol.Contract);
+                        if (Math.Abs(quantity) <= symbolInAction.MaxOrderSize * (i + 1)) break;
                     }
                 }
                 else
                 {
-                    orderType.TotalQuantity = Math.Abs(symbol.Position);
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(symbol.Position), symbol.Contract);
+                    orderType.TotalQuantity = Math.Abs(quantity);
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(quantity), symbol.Contract);
                 }
 
                 // reset all AccoutStat under that symbol
+                /*
                 if (symbolInAction != null)
                 {
                     foreach (Script script in symbolInAction.Scripts)
@@ -1263,7 +1270,7 @@ namespace AmiBroker.Controllers
                         }
                     }
                 }
-
+                */
             }
         }
     }

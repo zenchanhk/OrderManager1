@@ -509,9 +509,10 @@ namespace AmiBroker.Controllers
                             if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime
+                                if (signal && strategy.OrderTypesDic[OrderAction.Buy].Count > 0 &&
+                                    (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
-                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Buy][0], "AuxPrice")))
+                                    || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Buy][0])))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
                                 }
@@ -519,9 +520,10 @@ namespace AmiBroker.Controllers
 
 
                                 signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime
+                                if (signal && strategy.OrderTypesDic[OrderAction.Sell].Count > 0 &&
+                                    (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
-                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Sell][0], "AuxPrice")))
+                                    || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Sell][0])))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
                                 }
@@ -530,18 +532,20 @@ namespace AmiBroker.Controllers
                             if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime
+                                if (signal && strategy.OrderTypesDic[OrderAction.Short].Count > 0 &&
+                                    (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
-                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Short][0], "AuxPrice")))
+                                    || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Short][0])))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
                                 }
                                 lastBarInfo[key].ShortSignal = signal;
 
                                 signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime
+                                if (signal && strategy.OrderTypesDic[OrderAction.Cover].Count > 0 &&
+                                    (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
-                                    || BaseOrderTypeAccessor.HasProperty(strategy.OrderTypesDic[OrderAction.Cover][0], "AuxPrice")))
+                                    || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Cover][0])))
                                 {
                                     Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
                                 }
@@ -785,7 +789,7 @@ namespace AmiBroker.Controllers
                 IController controller = account.Controller;
                 //System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
 
-                bool isStopOrder = BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice");
+                bool isStopOrder = BaseOrderTypeAccessor.IsStopOrder(orderType);
                 switch (action)
                 {
                     case OrderAction.APSLong:
@@ -1041,7 +1045,7 @@ namespace AmiBroker.Controllers
                             return false;
                         }
 
-                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        if (BaseOrderTypeAccessor.IsStopOrder(orderType))
                         {
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
@@ -1148,7 +1152,7 @@ namespace AmiBroker.Controllers
                             return false;
                         }
 
-                        if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                        if (BaseOrderTypeAccessor.IsStopOrder(orderType))
                         {
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
@@ -1779,12 +1783,12 @@ namespace AmiBroker.Controllers
                                 if (at == ActionType.Long || at == ActionType.LongAndShort)
                                 {
                                     s.BuySignal = new ATAfl(buySignals[i]);
-                                    s.SellSignal = !string.IsNullOrEmpty(sellSignals[0]) ? new ATAfl(sellSignals[i]) : new ATAfl();
+                                    s.SellSignal = !string.IsNullOrEmpty(sellSignals[i]) ? new ATAfl(sellSignals[i]) : new ATAfl();
                                 }
                                 if (at == ActionType.Short || at == ActionType.LongAndShort)
                                 {
                                     s.ShortSignal = new ATAfl(shortSignals[i]);
-                                    s.CoverSignal = !string.IsNullOrEmpty(coverSignals[0]) ? new ATAfl(coverSignals[i]) : new ATAfl();
+                                    s.CoverSignal = !string.IsNullOrEmpty(coverSignals[i]) ? new ATAfl(coverSignals[i]) : new ATAfl();
                                 }
 
                                 // initialize prices

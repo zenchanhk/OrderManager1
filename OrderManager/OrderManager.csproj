@@ -114,6 +114,7 @@
     <Compile Include="ABMethods.cs" />
     <Compile Include="Controllers\Helper\BcpBinding.cs" />
     <Compile Include="Controllers\Helper\BindableParameter.cs" />
+    <Compile Include="Controllers\Helper\DialogsHelper.cs" />
     <Compile Include="Controllers\Helper\Helper.cs" />
     <Compile Include="Controllers\Helper\ImageHelper.cs" />
     <Compile Include="Controllers\Helper\JsonHelper.cs" />

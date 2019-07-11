@@ -129,6 +129,8 @@ namespace AmiBroker.Controllers
     {
         private static Dictionary<string, TypeAccessor> _accessors = new Dictionary<string, TypeAccessor>();
         private readonly static object lockObj = new object();
+        private readonly static object lockCache = new object();
+
         public static TypeAccessor GetAccessor(string name, string nameSpace)
         {
             lock (lockObj)
@@ -162,6 +164,23 @@ namespace AmiBroker.Controllers
             }            
         }
 
+        private static Dictionary<object, bool> _queriedResult = new Dictionary<object, bool>();
+        public static bool IsStopOrder(object obj)
+        {
+            string propName = "AuxPrice";
+            if (obj == null) return false;
+            lock (lockCache)
+            {
+                if (_queriedResult.ContainsKey(obj))
+                    return _queriedResult[obj];
+                else
+                {
+                    bool result = HasProperty(obj, propName);
+                    _queriedResult.Add(obj, result);
+                    return result;
+                }
+            }            
+        }
         public static bool HasProperty(object obj, string propName)
         {
             Type type = obj.GetType();

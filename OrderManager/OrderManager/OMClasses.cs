@@ -1066,7 +1066,7 @@ namespace AmiBroker.OrderManager
                 if (orderInfos != null)
                 {
                     oi = orderInfos.Last();
-                    bool isStopOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "AuxPrice");
+                    bool isStopOT = BaseOrderTypeAccessor.IsStopOrder(oi.OrderType);
                     bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice");
                     if (!isStopOT && !isLmtOT) return;
 
@@ -1169,6 +1169,7 @@ namespace AmiBroker.OrderManager
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
                     Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitLong, DateTime.Now, orderType);
+                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitShort, DateTime.Now, orderType);
                     /*
                     IController controller = item.Value.Account.Controller;
                     BaseStat scriptStat = Script.AccountStat[item.Value.Account.Name];
