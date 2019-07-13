@@ -514,7 +514,7 @@ namespace AmiBroker.Controllers
         public void ReadSettings()
         {
             UserPreference = JsonConvert.DeserializeObject<UserPreference>(Properties.Settings.Default["preference"].ToString());
-            List<IController> ctrls = new List<IController>();
+            List<IController> all_ctrls = new List<IController>();
             if (UserPreference != null)
             {
                 Type t = typeof(Helper);
@@ -535,17 +535,36 @@ namespace AmiBroker.Controllers
                             if (ic != null)
                             {
                                 ic.ConnParam = acc;
-                                ctrls.Add(ic);
+                                all_ctrls.Add(ic);
                             }
                             else
-                                ctrls.Add(ctrl);
+                            {
+                                all_ctrls.Add(ctrl);
+                            }                                
                         }
                     }
-                    Controllers.Clear();
-                    foreach (var item in ctrls)
+                    // add new controllers
+                    foreach (var ctrl in all_ctrls)
                     {
-                        Controllers.Add(item);
+                        IController ic = Controllers.FirstOrDefault(x => x.DisplayName == ctrl.DisplayName);
+                        if (ic == null)
+                            Controllers.Add(ctrl);
                     }
+
+                    // remove out-of-date controllers
+                    foreach (var ctrl in Controllers.ToList())
+                    {
+                        IController ic = all_ctrls.FirstOrDefault(x => x.DisplayName == ctrl.DisplayName);
+                        if (ic == null)
+                        {
+                            foreach (var symbol in SymbolInActions)
+                            {
+                                symbol.AppliedControllers.Remove(ctrl);
+                            }
+                            Controllers.Remove(ctrl);
+                        }
+                    }
+                    
                 }
             }
 

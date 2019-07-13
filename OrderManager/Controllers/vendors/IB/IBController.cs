@@ -1454,6 +1454,13 @@ namespace AmiBroker.Controllers
                     if (SelectedAccount == null && Accounts.Count > 0)
                         SelectedAccount = Accounts[0];
                 }
+                // remove out-of-date accounts
+                foreach (var acc in Accounts.ToList())
+                {
+                    string accName = accounts.FirstOrDefault(x => x == acc.Name);
+                    if (string.IsNullOrEmpty(accName))
+                        Accounts.Remove(Accounts.FirstOrDefault(x => x.Name == acc.Name));
+                }
             });
             // reqAccountUpdate to get portfolio for each account
             for (int i = 1; i < accounts.Count(); i++)
