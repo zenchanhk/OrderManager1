@@ -1050,7 +1050,7 @@ namespace AmiBroker.Controllers
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
                             decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
-                            if ((stopPrice - ((decimal)close)) > (trigger * strategy.Symbol.MinTick))
+                            if (Math.Abs(stopPrice - ((decimal)close)) > (trigger * strategy.Symbol.MinTick))
                             {
                                 message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
                                 return false;
@@ -1157,7 +1157,7 @@ namespace AmiBroker.Controllers
                             string auxP = BaseOrderTypeAccessor.GetValueByName(orderType, "AuxPrice");
                             decimal stopPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, auxP);
                             decimal trigger = BaseOrderTypeAccessor.GetValueByName(orderType, "SubmitTrigger");
-                            if ((((decimal)close) - stopPrice) > (trigger * strategy.Symbol.MinTick))
+                            if (Math.Abs(((decimal)close) - stopPrice) > (trigger * strategy.Symbol.MinTick))
                             {
                                 message += "Current price is not approaching to stop price for strategy - " + strategy.Name;
                                 return false;

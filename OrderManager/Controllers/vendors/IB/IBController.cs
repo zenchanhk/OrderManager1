@@ -2132,7 +2132,7 @@ namespace AmiBroker.Controllers
                 {
                     acc = new AccountInfo(e.AccountName, this);
                     Accounts.Add(acc);
-                    mainVM.LogList.Add(new Log()
+                    mainVM.Log(new Log()
                     {
                         Source = DisplayName,
                         Time = DateTime.Now,
