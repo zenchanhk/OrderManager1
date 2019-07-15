@@ -1537,6 +1537,11 @@ namespace AmiBroker.Controllers
                 filled = e.Filled / oi.Strategy.Symbol.RoundLotSize;
                 remaining = e.Remaining / oi.Strategy.Symbol.RoundLotSize;
             }
+            else
+            {
+                filled = e.Filled;
+                remaining = e.Remaining;
+            }
                 
 
             mainVM.MinorLog(new Log()
@@ -1575,7 +1580,7 @@ namespace AmiBroker.Controllers
                     {
                         dOrder = dOrder.ShallowCopy();
                         dOrder.Time = DateTime.Now;
-                        if (oi != null)
+                        //if (oi != null)
                         {
                             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                             {
@@ -2125,12 +2130,13 @@ namespace AmiBroker.Controllers
             {
                 if (acc == null)
                 {
-                    Accounts.Add(new AccountInfo(e.AccountName, this));
+                    acc = new AccountInfo(e.AccountName, this);
+                    Accounts.Add(acc);
                     mainVM.LogList.Add(new Log()
                     {
                         Source = DisplayName,
                         Time = DateTime.Now,
-                        Text = "A new account has been added"
+                        Text = string.Format("A new account [{0}] has been added", e.AccountName)
                     });
                 }
                 AccountTag tag = acc.Properties.FirstOrDefault<AccountTag>(x => x.Tag == e.Key);

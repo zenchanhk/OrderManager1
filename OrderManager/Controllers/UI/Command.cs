@@ -1083,22 +1083,24 @@ namespace AmiBroker.Controllers
     {
         public bool CanExecute(object parameter)
         {
-            return true;
-            /*
+            //return true;
+            
+            
             MainViewModel mainVM = MainViewModel.Instance;
             DisplayedOrder order = mainVM.SelectedPendingOrder;
 
-            
-            if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
-            {
-                OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
-                if (oi.Filled < oi.PosSize)
-                    return true;
-                else
+            DisplayedOrder o = mainVM.Orders.Where(x => x.RealOrderId == order.RealOrderId)
+                .OrderByDescending(x => x.Time).FirstOrDefault();
+
+
+            if (o == null || (o != null && (o.Status == Krs.Ats.IBNet.OrderStatus.Canceled ||
+                o.Status == Krs.Ats.IBNet.OrderStatus.ApiCancelled ||
+                o.Status == Krs.Ats.IBNet.OrderStatus.Filled)))
+            {  
                     return false;
             }
             else
-                return false; */
+                return true; 
         }
 
         public event EventHandler CanExecuteChanged
