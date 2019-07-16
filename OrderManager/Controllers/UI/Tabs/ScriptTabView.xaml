@@ -1423,7 +1423,7 @@
                             <Expander IsExpanded="True" FontWeight="SemiBold">
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Account.Name}"/>
+                                        <TextBlock Text="{Binding Account.DisplayName}"/>
                                         <Image Source="{StaticResource upDrawingImage}" 
                                                ToolTip="Long position"
                                                Width="17" Margin="2, 0"/>

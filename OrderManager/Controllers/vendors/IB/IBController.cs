@@ -193,6 +193,7 @@ namespace AmiBroker.Controllers
         public bool IsEnabled { get; set; } = true; // indicate if seletable in multiselect combox
 
         private string last_req_account;
+        private Timer _timer = null;
         public MainViewModel MainVM { get; private set; }
         public IBController(MainViewModel vm)
         {
@@ -203,6 +204,17 @@ namespace AmiBroker.Controllers
             Image = new BitmapImage(uri);
             ImageSize = new Size(16, 16);
             Group = DefaultGroupService.GetItemGroup("IB");
+            Accounts.CollectionChanged += Accounts_CollectionChanged;
+        }
+
+        private void Accounts_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (Accounts.Count > 1)
+            {
+                _timer = new Timer(x => RefreshPortfolio(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            }
+            else
+                _timer.Dispose();
         }
 
         private void setHandler()
@@ -2014,6 +2026,21 @@ namespace AmiBroker.Controllers
                     });
                 }
                 AutoReconnect();
+            }
+        }
+        // refresh portfolio in a fixed period
+        private void RefreshPortfolio()
+        {
+            if (Accounts.Count <= 1) return;
+
+            foreach (var item in MainVM.Portfolio.ToList())
+            {
+                if (item.Position > 0 && Accounts.Any(x => x.Name == item.Account) && last_req_account != item.Account)
+                {
+                    Client.RequestAccountUpdates(true, item.Account);
+                    Thread.Sleep(1000);
+                    last_req_account = item.Account;
+                }                    
             }
         }
         // make up a virtual DisplayedOrder
