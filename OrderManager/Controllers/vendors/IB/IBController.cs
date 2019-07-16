@@ -214,7 +214,10 @@ namespace AmiBroker.Controllers
                 _timer = new Timer(x => RefreshPortfolio(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             }
             else
-                _timer.Dispose();
+            {
+                if (_timer != null)
+                    _timer.Dispose();
+            }                
         }
 
         private void setHandler()
@@ -2040,6 +2043,12 @@ namespace AmiBroker.Controllers
                     Client.RequestAccountUpdates(true, item.Account);
                     Thread.Sleep(1000);
                     last_req_account = item.Account;
+                    MainVM.MinorLog(new Log
+                    {
+                        Text = string.Format("Account [{0}] has been refreshed", item.Account),
+                        Source = "RefreshPortfolio",
+                        Time = DateTime.Now
+                    });
                 }                    
             }
         }
