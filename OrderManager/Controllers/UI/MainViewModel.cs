@@ -100,7 +100,7 @@ namespace AmiBroker.Controllers
         // collectionViewSources for views
         private CollectionViewSource poViewSource;
         private CollectionViewSource execViewSource;
-
+        private Dictionary<string, string> AccountAlias = new Dictionary<string, string>();
         // for script treeview use -- selected treeview item
         private object _pSelectedItem;
         public object SelectedItem
@@ -179,6 +179,7 @@ namespace AmiBroker.Controllers
                         
             // retrieving the settings
             ReadSettings();
+            ReadAccountAlias();
 
             // reading all order types
             var types = typeof(IBOrderType).Assembly.GetTypes().Where(x => x.IsSubclassOf(typeof(IBOrderType)));
@@ -509,6 +510,49 @@ namespace AmiBroker.Controllers
         {
             var order = e.Item as DisplayedOrder;
             e.Accepted = !pendingStatus.Any(s => order.Status.ToString().Contains(s));
+        }
+
+        private void ReadAccountAlias()
+        {
+            Dictionary<string, string> alias = JsonConvert.DeserializeObject<Dictionary<string, string>>(Properties.Settings.Default["AccountAlias"].ToString());
+            if (alias != null)
+                AccountAlias = alias;
+        }
+
+        private void UpdateAccountAlias(string accountName, string alias)
+        {
+            AccountInfo accountInfo = Controllers.FirstOrDefault(x => x.Accounts.Any(y => y.Name == accountName))?
+                .Accounts.FirstOrDefault(x => x.Name == accountName);
+            if (accountInfo != null)
+                accountInfo.Alias = alias;
+        }
+
+        public void SaveAccountAlias(string accountName, string alias)
+        {
+            if (AccountAlias.ContainsKey(accountName))
+            {
+                if (string.IsNullOrEmpty(alias))
+                    AccountAlias.Remove(accountName);
+                else
+                    AccountAlias[accountName] = alias;
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(alias))
+                    AccountAlias.Add(accountName, alias);
+            }
+            // will update in Converter
+            //UpdateAccountAlias(accountName, alias);
+            Properties.Settings.Default["AccountAlias"] = JsonConvert.SerializeObject(AccountAlias);
+            Properties.Settings.Default.Save();
+        }
+
+        public string FindAccountAlias(string name)
+        {
+            if (AccountAlias.ContainsKey(name))
+                return AccountAlias[name];
+            else
+                return string.Empty;
         }
 
         public void ReadSettings()

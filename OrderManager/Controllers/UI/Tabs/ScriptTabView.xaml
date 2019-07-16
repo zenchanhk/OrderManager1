@@ -302,14 +302,14 @@
                                                 <ItemsControl ItemsSource="{Binding Accounts}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
-                                                            <StackPanel Orientation="Horizontal" />
+                                                            <StackPanel Orientation="Vertical" />
                                                         </ItemsPanelTemplate>
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <TextBlock Margin="0,0,3,0">
                                                                         <Run Text="["/>
-                                                                        <Bold><Run Text="{Binding Name, Mode=OneWay}" /></Bold>
+                                                                        <Bold><Run Text="{Binding DisplayName, Mode=OneWay}" /></Bold>
                                                                         <Run Text="]"/>
                                                                         <Run Text="{Binding TotalCashValue.Currency}" />
                                                                         <Run Text="{Binding TotalCashValue.Value}" />

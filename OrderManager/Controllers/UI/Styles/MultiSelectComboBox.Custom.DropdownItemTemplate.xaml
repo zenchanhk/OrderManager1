@@ -20,7 +20,7 @@
                              Foreground="{Binding Controller.ConnectionStatus, Converter={StaticResource StatusToBrushConverter}}" />
             <TextBlock Grid.Column="2" Style="{StaticResource MultiSelectComboBox.DefaultTextBlock.Style}" HorizontalAlignment="Left">
                 <Run Text="["/><Bold><Run Foreground="#FF4F68AA" Text="{Binding Controller.DisplayName, Mode=OneWay}"/></Bold><Run Text="]"/>
-                <Run Text="{Binding Name, Mode=OneWay}"/>
+                <Run Text="{Binding DisplayName, Mode=OneWay}"/>
             </TextBlock>
 
         </Grid>

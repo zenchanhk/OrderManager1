@@ -19,6 +19,7 @@ namespace AmiBroker.Controllers
     public class Commands
     {
         public ICommand SaveLayout { get; set; } = new SaveLayout();
+        public ICommand SaveAccountAlias { get; set; } = new SaveAccountAlias();
         public ICommand RestoreLayout { get; set; } = new RestoreLayout();
         public ICommand ConnectAll { get; set; } = new ConnectAll();
         public ICommand DisconnectAll { get; set; } = new DisconnectAll();
@@ -72,6 +73,27 @@ namespace AmiBroker.Controllers
             {
                 c.test();
             }
+        }
+    }
+    public class SaveAccountAlias : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            var values = (object[])parameter;
+            AccountInfo accInfo = (AccountInfo)values[0];
+            string alias = (string)values[1];
+            accInfo.Alias = (string)values[1];
+            MainViewModel.Instance.SaveAccountAlias(accInfo.Name, alias);
         }
     }
     public class AssignStrategy : ICommand

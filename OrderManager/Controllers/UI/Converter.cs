@@ -88,6 +88,23 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    class SelectedItemToAliasConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value != null)
+            {
+                return ((AccountInfo)value).Alias;
+            }
+            return string.Empty;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     class IsTriggeredToColorConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -349,6 +366,18 @@ namespace AmiBroker.Controllers
                 }
             }
             return "";
+        }
+
+        public object[] ConvertBack(object value, Type[] targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class AliasSaveCmdParamsConverter : IMultiValueConverter
+    {
+        public object Convert(object[] value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value.Clone();
         }
 
         public object[] ConvertBack(object value, Type[] targetType, object parameter, CultureInfo culture)

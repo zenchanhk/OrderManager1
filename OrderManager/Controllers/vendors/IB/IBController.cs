@@ -193,10 +193,10 @@ namespace AmiBroker.Controllers
         public bool IsEnabled { get; set; } = true; // indicate if seletable in multiselect combox
 
         private string last_req_account;
-        private MainViewModel mainVM;
+        public MainViewModel MainVM { get; private set; }
         public IBController(MainViewModel vm)
         {
-            mainVM = vm; //it's neccessary since constructor being called during MainViewModel constructing
+            MainVM = vm; //it's neccessary since constructor being called during MainViewModel constructing
             setHandler();
             Accounts = new ObservableCollection<AccountInfo>();
             Uri uri = new Uri("pack://application:,,,/OrderManager;component/Controllers/images/ib.png");
@@ -410,7 +410,7 @@ namespace AmiBroker.Controllers
 
                     if (pos > ps)
                     {
-                        mainVM.Log(new Log
+                        MainVM.Log(new Log
                         {
                             Time = DateTime.Now,
                             Text = string.Format("Warning: existing position({0:0}) is greater than specified one(({1:0}).", pos, strategy.PositionSize),
@@ -443,7 +443,7 @@ namespace AmiBroker.Controllers
                 if (symbol.MinOrderSize > 0 && symbol.MaxOrderSize > 0 &&
                 (order.TotalQuantity < symbol.MinOrderSize || order.TotalQuantity > symbol.MaxOrderSize))
                 {
-                    mainVM.Log(new Log
+                    MainVM.Log(new Log
                     {
                         Time = DateTime.Now,
                         Text = string.Format("Total quantity {0:0} is out of range({1:0} - {2:0})", order.TotalQuantity, symbol.MinOrderSize, symbol.MaxOrderSize),
@@ -630,7 +630,7 @@ namespace AmiBroker.Controllers
                 OrderInfo oi = strategy.AccountStat[accountInfo.Name].OrderInfos[orderAction].LastOrDefault();
                 if (oi == null)
                 {
-                    mainVM.Log(new Log
+                    MainVM.Log(new Log
                     {
                         Source = src,
                         Text = "Order info cannot be found in [" + accountInfo.Name + "]",
@@ -725,7 +725,7 @@ namespace AmiBroker.Controllers
                 if (oi.OrderType.Slippages != null && orderType.Slippages !=null 
                     && oi.OrderType.Slippages.Count != orderType.Slippages.Count)
                 {
-                    mainVM.Log(new Log
+                    MainVM.Log(new Log
                     {
                         Source = src,
                         Time = DateTime.Now,
@@ -770,7 +770,7 @@ namespace AmiBroker.Controllers
                     DisplayedOrder displayedOrder = null;
                     lock (MainViewModel.ordersLock)
                     {
-                        displayedOrder = mainVM.Orders.FirstOrDefault(x => x.RealOrderId == orderInfo.RealOrderId);
+                        displayedOrder = MainVM.Orders.FirstOrDefault(x => x.RealOrderId == orderInfo.RealOrderId);
                     }
                     
                     if (displayedOrder != null)
@@ -793,7 +793,7 @@ namespace AmiBroker.Controllers
                     });
                 }*/
 
-                mainVM.Log(new Log
+                MainVM.Log(new Log
                 {
                     Source = src,
                     Time = DateTime.Now,
@@ -865,7 +865,7 @@ namespace AmiBroker.Controllers
 
                         OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
                         oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(info);
-                        mainVM.AddOrderInfo(olog.OrderId, info);
+                        MainVM.AddOrderInfo(olog.OrderId, info);
 
                         Client.PlaceOrder(id, oi.Contract, order);
                     }
@@ -996,7 +996,7 @@ namespace AmiBroker.Controllers
                     IBContract iBContract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
                     if (iBContract == null)
                     {
-                        mainVM.Log(new Log
+                        MainVM.Log(new Log
                         {
                             Text = "No security definition found for " + contract.LocalSymbol,
                             Source = "IBController.PlaceOrder",
@@ -1355,7 +1355,7 @@ namespace AmiBroker.Controllers
             {
                 if (oi == null)
                 {
-                    mainVM.Log(new Log
+                    MainVM.Log(new Log
                     {
                         Text = "Cancellation failed due to OrderInfo is null.",
                         Source = "Controller.CancelOrders",
@@ -1388,8 +1388,8 @@ namespace AmiBroker.Controllers
         {
             // isconnected must be put in the first place
             if (IsConnected || disconnectByManual || timer.Enabled) return;
-            int interval = mainVM.UserPreference.ConnectAttempInterval;
-            if (interval > 0 && mainVM.UserPreference.ReconnectEnabled)
+            int interval = MainVM.UserPreference.ConnectAttempInterval;
+            if (interval > 0 && MainVM.UserPreference.ReconnectEnabled)
             {
                 timer.Interval = interval * 1000;
                 timer.Elapsed += Timer_Elapsed;
@@ -1398,13 +1398,13 @@ namespace AmiBroker.Controllers
         }
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            if (!mainVM.UserPreference.ReconnectEnabled)
+            if (!MainVM.UserPreference.ReconnectEnabled)
             {
                 timer.Stop();
                 return;
             }
             if (IsConnected) return;
-            mainVM.AddMessage(new Message { Time = DateTime.Now, Text = "Trying to reconnect..." });
+            MainVM.AddMessage(new Message { Time = DateTime.Now, Text = "Trying to reconnect..." });
             if (!IsConnected)
                 Connect();
 
@@ -1432,7 +1432,7 @@ namespace AmiBroker.Controllers
             }
             catch (Exception ex)
             {
-                mainVM.AddMessage(new Message
+                MainVM.AddMessage(new Message
                 {
                     Time = DateTime.Now,
                     Text = "Exception: " + ex.Message
@@ -1447,9 +1447,12 @@ namespace AmiBroker.Controllers
             {
                 foreach (var acc in accounts)
                 {
-                    AccountInfo acc1 = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == acc);
-                    if (acc1 == null)
-                        Accounts.Add(new AccountInfo(acc, this));
+                    if (!string.IsNullOrEmpty(acc))
+                    {
+                        AccountInfo acc1 = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == acc);
+                        if (acc1 == null)
+                            Accounts.Add(new AccountInfo(acc, this));
+                    }                    
                     // make the first one as selected account
                     if (SelectedAccount == null && Accounts.Count > 0)
                         SelectedAccount = Accounts[0];
@@ -1466,6 +1469,7 @@ namespace AmiBroker.Controllers
             for (int i = 1; i < accounts.Count(); i++)
             {
                 Client.RequestAccountUpdates(true, accounts[i]);
+                Thread.Sleep(1000);
             }
             Client.RequestAccountUpdates(true, accounts[0]);
             last_req_account = accounts[0];
@@ -1477,7 +1481,7 @@ namespace AmiBroker.Controllers
                 DisplayedOrder dOrder = null;
                 lock (MainViewModel.ordersLock)
                 {
-                    dOrder = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.OrderId);
+                    dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.OrderId);
                 }
                 
                 if (dOrder == null)
@@ -1510,9 +1514,9 @@ namespace AmiBroker.Controllers
                     };
                     lock (MainViewModel.orderInfoListLock)
                     {
-                        if (mainVM.OrderInfoList.Any(x => x.Value.RealOrderId == e.OrderId))
+                        if (MainVM.OrderInfoList.Any(x => x.Value.RealOrderId == e.OrderId))
                         {
-                            OrderInfo oi = mainVM.OrderInfoList.FirstOrDefault(x => x.Value.RealOrderId == e.OrderId).Value;
+                            OrderInfo oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.RealOrderId == e.OrderId).Value;
                             Strategy strategy = oi.Strategy;
                             if (strategy != null)
                                 dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
@@ -1520,7 +1524,7 @@ namespace AmiBroker.Controllers
 
                         }
                     }                    
-                    mainVM.InsertOrder(dOrder);
+                    MainVM.InsertOrder(dOrder);
                 }
             });
 
@@ -1531,9 +1535,9 @@ namespace AmiBroker.Controllers
             int filled = 0; 
             int remaining = 0;
             OrderInfo oi = null;
-            if (mainVM.OrderInfoList.ContainsKey(ConnParam.AccName + e.OrderId))
+            if (MainVM.OrderInfoList.ContainsKey(ConnParam.AccName + e.OrderId))
             {
-                oi = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId];
+                oi = MainVM.OrderInfoList[ConnParam.AccName + e.OrderId];
                 filled = e.Filled / oi.Strategy.Symbol.RoundLotSize;
                 remaining = e.Remaining / oi.Strategy.Symbol.RoundLotSize;
             }
@@ -1544,7 +1548,7 @@ namespace AmiBroker.Controllers
             }
                 
 
-            mainVM.MinorLog(new Log()
+            MainVM.MinorLog(new Log()
             {
                 Text = string.Format("Coming order status - Id: {0}, filled: {1}, remaining: {2}, status:{3}",
                                                 e.OrderId, e.Filled, e.Remaining, e.Status),
@@ -1554,23 +1558,23 @@ namespace AmiBroker.Controllers
             DisplayedOrder dOrder = null;
             lock (MainViewModel.ordersLock)
             {
-                dOrder = mainVM.Orders.LastOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.OrderId);
+                dOrder = MainVM.Orders.LastOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.OrderId);
             }
             if (dOrder == null)
             {
-                mainVM.Log(new Log() { Text = string.Format("Order Id: {0:0} cannot be found", e.OrderId), Time = DateTime.Now });
+                MainVM.Log(new Log() { Text = string.Format("Order Id: {0:0} cannot be found", e.OrderId), Time = DateTime.Now });
             }
             else
             {
                 // make a copy if every step needs keeping
-                if (mainVM.UserPreference.KeepTradeSteps)
+                if (MainVM.UserPreference.KeepTradeSteps)
                 {
                     DisplayedOrder tmp = null;
-                    if (mainVM.UserPreference.IgnoreDuplicatedRecord)
+                    if (MainVM.UserPreference.IgnoreDuplicatedRecord)
                     {
                         lock (MainViewModel.ordersLock)
                         {
-                            tmp = mainVM.Orders.LastOrDefault(x => x.OrderId == ConnParam.AccName + e.OrderId &&
+                            tmp = MainVM.Orders.LastOrDefault(x => x.OrderId == ConnParam.AccName + e.OrderId &&
                                                                 x.Remaining == e.Remaining && x.Status == e.Status);
                         }
                         if (tmp != null)
@@ -1589,7 +1593,7 @@ namespace AmiBroker.Controllers
                                 dOrder.Remaining = remaining;
                                 dOrder.AvgPrice = e.AverageFillPrice;
                                 dOrder.Time = DateTime.Now;
-                                mainVM.InsertOrder(dOrder);
+                                MainVM.InsertOrder(dOrder);
                             });
                         }
                     }
@@ -1612,7 +1616,7 @@ namespace AmiBroker.Controllers
                     DisplayedOrder displayedOrder = null;
                     lock (MainViewModel.updatedOrdersLock)
                     {
-                        displayedOrder = mainVM.UpdatedOrders.LastOrDefault(x => x.Filled == filled &&
+                        displayedOrder = MainVM.UpdatedOrders.LastOrDefault(x => x.Filled == filled &&
                                                           x.RealOrderId == e.OrderId &&
                                                           x.Remaining == remaining);
                     }                    
@@ -1642,11 +1646,11 @@ namespace AmiBroker.Controllers
                             duplicatedFound = true;
                             // update status
                             oi.OrderStatus = dOrder;
-                            mainVM.InsertUpdatedOrder(dOrder);
+                            MainVM.InsertUpdatedOrder(dOrder);
                         }
                         else
                         {
-                            mainVM.MinorLog(new Log()
+                            MainVM.MinorLog(new Log()
                             {
                                 Text = string.Format("Duplicated order status found for order Id: {0}, filled: {1}, remaining: {2}, current status:{3}, previous status:{4}",
                                                 e.OrderId, e.Filled, e.Remaining, e.Status, displayedOrder.Status),
@@ -1659,14 +1663,14 @@ namespace AmiBroker.Controllers
                             {
                                 // update status
                                 oi.OrderStatus = dOrder;
-                                mainVM.InsertUpdatedOrder(dOrder);
+                                MainVM.InsertUpdatedOrder(dOrder);
                             }
                             return;
                         }
                     }
                     else
                     {
-                        mainVM.InsertUpdatedOrder(dOrder);
+                        MainVM.InsertUpdatedOrder(dOrder);
                     }                        
 
                     oi.OrderStatus = dOrder;
@@ -1721,7 +1725,7 @@ namespace AmiBroker.Controllers
 
                             double prev_long_pos = strategyStat.LongPosition;
                             double prev_short_pos = strategyStat.ShortPosition;
-                            mainVM.MinorLog(new Log
+                            MainVM.MinorLog(new Log
                             {
                                 Text = string.Format("Staus:{8}, OrderAction:{7}, Status:{6}, prev_filled:{0}, prev_re:{1}, " +
                                 "current_filled:{2}, current_re:{3}, long position:{10}, short position:{11}, filled:{4}, remaining:{5}, duplicated:{9}",
@@ -1784,7 +1788,7 @@ namespace AmiBroker.Controllers
                             else if (filled > 0)
                                 AccountStatusOp.SetPositionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, oi);
 
-                            mainVM.MinorLog(new Log
+                            MainVM.MinorLog(new Log
                             {
                                 Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}", 
                                 strategyStat.Status.ToString(), strategyStat.LongPosition, strategyStat.ShortPosition),
@@ -1801,14 +1805,14 @@ namespace AmiBroker.Controllers
                 //throw new Exception("OrderId:" + e.OrderId + " not found");
                 //Exception ex = new Exception("OrderId:" + e.OrderId + " not found");
                 //GlobalExceptionHandler.HandleException("IBController.eh_OrderStatus", ex);
-                mainVM.Log(new Log() { Text = string.Format("Order Id: {0:0} cannot be found, this order may be issued mannually", e.OrderId), Time = DateTime.Now });
+                MainVM.Log(new Log() { Text = string.Format("Order Id: {0:0} cannot be found, this order may be issued mannually", e.OrderId), Time = DateTime.Now });
             }
         }
         private void eh_UpdatePortfolio(object sender, UpdatePortfolioEventArgs e)
         {
             bool isInPortfolio = true;
             string symbol_name = e.Contract.Symbol;
-            SymbolInMkt symbol = mainVM.Portfolio.FirstOrDefault<SymbolInMkt>(x => x.Symbol == symbol_name &&
+            SymbolInMkt symbol = MainVM.Portfolio.FirstOrDefault<SymbolInMkt>(x => x.Symbol == symbol_name &&
                                                                                 x.Account == e.AccountName);
             if (symbol == null)
             {
@@ -1841,7 +1845,7 @@ namespace AmiBroker.Controllers
                     symbol.Source = DisplayName;
                     symbol.Vendor = Vendor;
                     symbol.Contract = e.Contract;
-                    mainVM.Portfolio.Insert(0, symbol);
+                    MainVM.Portfolio.Insert(0, symbol);
                 }
             });
         }
@@ -1851,7 +1855,7 @@ namespace AmiBroker.Controllers
             OrderInfo oi = null;
             lock (MainViewModel.orderInfoListLock)
             {
-                oi = mainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + e.TickerId).Value;
+                oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + e.TickerId).Value;
             }            
             if (oi != null)
             {
@@ -1893,12 +1897,12 @@ namespace AmiBroker.Controllers
                         DisplayedOrder dOrder = null;
                         lock (MainViewModel.ordersLock)
                         {
-                            dOrder = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.TickerId);
+                            dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.TickerId);
                         }
                         if (dOrder == null)
                         {
                             dOrder = MakeDisplayedOrder(e.TickerId);                            
-                            mainVM.InsertOrder(dOrder);
+                            MainVM.InsertOrder(dOrder);
                         }
 
                         // issue an ApiCanceled event
@@ -1920,7 +1924,7 @@ namespace AmiBroker.Controllers
 
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
-                        mainVM.Log(new Log()
+                        MainVM.Log(new Log()
                         {
                             Time = DateTime.Now,
                             Text = e.ErrorCode + "-" + e.ErrorMsg + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
@@ -1934,7 +1938,7 @@ namespace AmiBroker.Controllers
                 {
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
-                        mainVM.Log(new Log()
+                        MainVM.Log(new Log()
                         {
                             Time = DateTime.Now,
                             Text = e.ErrorMsg + "(OrderId:" + oi.OrderId + ", error: account status not found)",
@@ -1949,7 +1953,7 @@ namespace AmiBroker.Controllers
                 int i = 0;
                 Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
-                    mainVM.Log(new Log()
+                    MainVM.Log(new Log()
                     {
                         Time = DateTime.Now,
                         Text = "(orderId not found)" + e.ErrorMsg,
@@ -1974,7 +1978,7 @@ namespace AmiBroker.Controllers
             }
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                mainVM.AddMessage(new Message()
+                MainVM.AddMessage(new Message()
                 {
                     Time = DateTime.Now,
                     //Code = e.ErrorCode.,
@@ -1995,7 +1999,7 @@ namespace AmiBroker.Controllers
             {
                 if (!SystemHelper.IsTWSOpen())
                 {
-                    mainVM.AddMessage(new Message
+                    MainVM.AddMessage(new Message
                     {
                         Time = DateTime.Now,
                         Text = "Connection closed due to TWS shutdown."
@@ -2003,7 +2007,7 @@ namespace AmiBroker.Controllers
                 }
                 else
                 {
-                    mainVM.AddMessage(new Message
+                    MainVM.AddMessage(new Message
                     {
                         Time = DateTime.Now,
                         Text = "Connection closed due to unknown reason - sender:" + sender.ToString()
@@ -2018,7 +2022,7 @@ namespace AmiBroker.Controllers
             OrderInfo oi = null;
             lock (MainViewModel.orderInfoListLock)
             {
-                oi = mainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + orderId).Value;
+                oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + orderId).Value;
             }
             DisplayedOrder dOrder = null;
             if (oi != null)
@@ -2062,7 +2066,7 @@ namespace AmiBroker.Controllers
             init = true;
             // place an order impossible traded for JITed performance
             Log log = new Log { Time = DateTime.Now, Text = "Faked order generated." };
-            mainVM.Log(log);
+            MainVM.Log(log);
             SymbolInAction symbol = new SymbolInAction("QQQ", 60);
             symbol.AppliedControllers.Add(this);
             symbol.MinTick = 0.01M;
@@ -2079,7 +2083,7 @@ namespace AmiBroker.Controllers
 
             PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, bn, null, null, true, false);
             Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
-            mainVM.Log(log1);
+            MainVM.Log(log1);
             //Client.CancelOrder(ol1.OrderId);
             /*
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 1 });
@@ -2112,7 +2116,7 @@ namespace AmiBroker.Controllers
             }
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                mainVM.AddMessage(new Message()
+                MainVM.AddMessage(new Message()
                 {
                     Source = DisplayName,
                     Time = DateTime.Now,
@@ -2132,7 +2136,7 @@ namespace AmiBroker.Controllers
                 {
                     acc = new AccountInfo(e.AccountName, this);
                     Accounts.Add(acc);
-                    mainVM.Log(new Log()
+                    MainVM.Log(new Log()
                     {
                         Source = DisplayName,
                         Time = DateTime.Now,

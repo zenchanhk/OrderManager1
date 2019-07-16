@@ -468,6 +468,32 @@ namespace AmiBroker.Controllers
                 }
             }
         }
+                
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(Alias))
+                    return Alias;
+                else
+                    return Name;
+            }
+        }
+
+        private string _pAlias;
+        public string Alias
+        {
+            get { return _pAlias; }
+            set
+            {
+                if (_pAlias != value)
+                {
+                    _pAlias = value;
+                    OnPropertyChanged("DisplayName");
+                    OnPropertyChanged("Alias");
+                }
+            }
+        }
 
         //
         public AccountInfo(string name, IController controller)
@@ -480,6 +506,7 @@ namespace AmiBroker.Controllers
             ImageSize = new Size(16, 16);
             Group = DefaultGroupService.GetItemGroup(vendor);
             Properties.CollectionChanged += Properties_CollectionChanged;
+            Alias = MainViewModel.Instance.FindAccountAlias(name);
         }
 
         private void Properties_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

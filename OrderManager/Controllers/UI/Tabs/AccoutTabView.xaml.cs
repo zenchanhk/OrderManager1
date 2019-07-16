@@ -27,5 +27,10 @@ namespace AmiBroker.Controllers
             
             InitializeComponent();
         }
+
+        private void SaveBtn_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

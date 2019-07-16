@@ -77,6 +77,7 @@ namespace ConsoleApp1
             //IBController controller = new IBController(MainViewModel.Instance);
             //controller.test();
             //Console.ReadLine();
+            var c = JsonConvert.DeserializeObject<Dictionary<string, string>>("");
             Dictionary<string, Dictionary<string, GTA>> t = new Dictionary<string, Dictionary<string, GTA>>();
             t.Add("buy", new Dictionary<string, GTA>() { { "GTA", new GTA() { DT = DateTime.Now } } });
             string s1 = JsonConvert.SerializeObject(t);

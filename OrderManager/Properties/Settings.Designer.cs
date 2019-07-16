@@ -82,5 +82,17 @@ namespace AmiBroker.Controllers.Properties {
                 this["StrategyTemplates"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AccountAlias {
+            get {
+                return ((string)(this["AccountAlias"]));
+            }
+            set {
+                this["AccountAlias"] = value;
+            }
+        }
     }
 }

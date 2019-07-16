@@ -74,6 +74,8 @@
     <local:AccountStatusToVisConverter x:Key="AccountStatusToVisConverter"/>
     <local:PricesToProfitConverter x:Key="PricesToProfitConverter" />
     <local:IsTriggeredToColorConverter x:Key="IsTriggeredToColorConverter"/>
+    <local:SelectedItemToAliasConverter x:Key="SelectedItemToAliasConverter"/>
+    <local:AliasSaveCmdParamsConverter x:Key="AliasSaveCmdParamsConverter"/>
     <local:DummyConverter x:Key="Dummy" />
 
     <!--body content datagrid cell vertical centering-->
@@ -742,7 +744,21 @@
                               ItemsSource="{Binding Accounts}" 
                               SelectedItem="{Binding SelectedAccount}"
                               DisplayMemberPath="Name"
-                              Margin="3" Grid.Column="1" Grid.Row="0" />
+                              Margin="3" />
+                    <TextBlock Text="Alias:" Margin="10, 3, 3, 3" />
+                    <TextBox Name="txAlias" 
+                            Text="{Binding SelectedItem, ElementName=cbAccName, Mode=OneWay,
+                                    Converter={StaticResource SelectedItemToAliasConverter}}"
+                             MinWidth="200" Margin="3" />
+                    <Button Content="Save" Margin="10, 3, 3, 3"
+                            Command="{Binding MainVM.Commands.SaveAccountAlias}">
+                        <Button.CommandParameter>
+                            <MultiBinding Converter="{StaticResource AliasSaveCmdParamsConverter}">
+                                <Binding Path="SelectedItem" ElementName="cbAccName"/>
+                                <Binding Path="Text" ElementName="txAlias"/>
+                            </MultiBinding>
+                        </Button.CommandParameter>
+                    </Button>
                 </StackPanel>
                 <ListView ItemsSource="{Binding Path=SelectedAccount.Properties}" 
                               Margin="3,0,3,3"  Grid.ColumnSpan="1" Grid.Row="1"
