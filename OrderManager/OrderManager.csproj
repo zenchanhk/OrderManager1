@@ -59,6 +59,10 @@
     <Reference Include="GrayscaleEffect">
       <HintPath>..\packages\GrayscaleEffect.dll</HintPath>
     </Reference>
+    <Reference Include="Krs.Ats.IBNet, Version=1.0.999.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Debug\Krs.Ats.IBNet.dll</HintPath>
+    </Reference>
     <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <HintPath>..\packages\Mono.Data.Sqlite.1.0.61\lib\net40\Mono.Data.Sqlite.dll</HintPath>
     </Reference>
@@ -69,6 +73,10 @@
       <HintPath>..\packages\ParallelExtensionsExtras.1.2.0.0\lib\net40\ParallelExtensionsExtras.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework.Aero2" />
+    <Reference Include="Sdl.MultiSelectComboBox, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Debug\Sdl.MultiSelectComboBox.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Data" />
@@ -317,16 +325,6 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Controllers\images\ft.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj">
-      <Project>{0378f38f-5bf3-497f-91c2-1ee77c874593}</Project>
-      <Name>Sdl.MultiSelectComboBox</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\ib-csharp-master\Krs.Ats.IBNet\Krs.Ats.IBNet.csproj">
-      <Project>{66da63ac-f9f9-40ff-ba11-a3f7816e02ba}</Project>
-      <Name>Krs.Ats.IBNet</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Controllers\images\ib.png" />

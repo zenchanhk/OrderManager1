@@ -10,6 +10,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft;
 using Newtonsoft.Json.Converters;
+using Krs.Ats.IBNet;
 
 namespace ConsoleApp1
 {
@@ -77,6 +78,10 @@ namespace ConsoleApp1
             //IBController controller = new IBController(MainViewModel.Instance);
             //controller.test();
             //Console.ReadLine();
+            IBClient client = new IBClient();
+            client.Connect("localhost", 4002, 1);
+            Task.Run(() => client.PlaceOrder(1000, new Contract("MHIN9", "HKFE", SecurityType.Future, "HKD"), new Order()));
+            Task.Run(() => client.CancelOrder(1000));
             var c = JsonConvert.DeserializeObject<Dictionary<string, string>>("");
             Dictionary<string, Dictionary<string, GTA>> t = new Dictionary<string, Dictionary<string, GTA>>();
             t.Add("buy", new Dictionary<string, GTA>() { { "GTA", new GTA() { DT = DateTime.Now } } });

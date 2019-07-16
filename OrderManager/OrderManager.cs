@@ -365,6 +365,13 @@ namespace AmiBroker.Controllers
             try
             {
                 if (mainWin == null) return;
+                if (mainVM != null)
+                    mainVM.MinorLog(new Log
+                    {
+                        Time = DateTime.Now,
+                        Text = "Incoming data",
+                        Source = "IBC"
+                    });
                 if (AFTools.LastValue(AFDate.DateTime()) <= 0)
                 {
                     mainVM.MinorLog(new Log
@@ -600,6 +607,7 @@ namespace AmiBroker.Controllers
             bool proc_result = true;
             try
             {
+                
                 Log log = new Log
                 {
                     Time = DateTime.Now,
@@ -607,9 +615,7 @@ namespace AmiBroker.Controllers
                     Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderAction.ToString()
                 };
 
-                if (orderAction != OrderAction.APSLong && orderAction != OrderAction.APSShort
-                    && orderAction != OrderAction.StoplossLong && orderAction != OrderAction.StoplossShort
-                    && strategy.AccountsDic[orderAction].Count == 0)
+                if (strategy.AccountsDic[orderAction].Count == 0)
                 {
                     log.Text += "\nBut there is no account assigned.";
                     mainVM.MinorLog(log);

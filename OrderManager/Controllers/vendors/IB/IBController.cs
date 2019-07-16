@@ -204,7 +204,7 @@ namespace AmiBroker.Controllers
             Image = new BitmapImage(uri);
             ImageSize = new Size(16, 16);
             Group = DefaultGroupService.GetItemGroup("IB");
-            Accounts.CollectionChanged += Accounts_CollectionChanged;
+            //Accounts.CollectionChanged += Accounts_CollectionChanged;
         }
 
         private void Accounts_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -217,7 +217,7 @@ namespace AmiBroker.Controllers
             {
                 if (_timer != null)
                     _timer.Dispose();
-            }                
+            }
         }
 
         private void setHandler()
@@ -635,8 +635,8 @@ namespace AmiBroker.Controllers
             }*/
 
             return order;
-        }                
-        
+        }
+
         public bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType)
         {
             try
@@ -737,7 +737,7 @@ namespace AmiBroker.Controllers
                 }// END of update of order's prices
 
                 // The size of slippages of original and new must be equal
-                if (oi.OrderType.Slippages != null && orderType.Slippages !=null 
+                if (oi.OrderType.Slippages != null && orderType.Slippages != null
                     && oi.OrderType.Slippages.Count != orderType.Slippages.Count)
                 {
                     MainVM.Log(new Log
@@ -778,16 +778,16 @@ namespace AmiBroker.Controllers
 
                     Contract contract = orderInfo.Contract;
                     //Task.Run(() => {
-                        Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
-                        orderInfo.OrderType = orderType;
-                        orderInfo.PlacedTime = DateTime.Now;
+                    Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
+                    orderInfo.OrderType = orderType;
+                    orderInfo.PlacedTime = DateTime.Now;
                     //});
                     DisplayedOrder displayedOrder = null;
                     lock (MainViewModel.ordersLock)
                     {
-                        displayedOrder = MainVM.Orders.FirstOrDefault(x => x.RealOrderId == orderInfo.RealOrderId);
+                        displayedOrder = MainVM.Orders.FirstOrDefault(x => x.OrderId == ConnParam.AccName + orderInfo.RealOrderId);
                     }
-                    
+
                     if (displayedOrder != null)
                     {
                         displayedOrder.LmtPrice = order.LimitPrice;
@@ -1060,7 +1060,7 @@ namespace AmiBroker.Controllers
 
                     // in case of slippage table defined
                     if (orderType.Slippages != null && orderType.Slippages.Count > 0)
-                     {
+                    {
                         // assign position size according to the pre-defined slippage table
                         int round = 0;
                         int accuPosSize = 0;    // accumulated position size
@@ -1467,7 +1467,7 @@ namespace AmiBroker.Controllers
                         AccountInfo acc1 = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == acc);
                         if (acc1 == null)
                             Accounts.Add(new AccountInfo(acc, this));
-                    }                    
+                    }
                     // make the first one as selected account
                     if (SelectedAccount == null && Accounts.Count > 0)
                         SelectedAccount = Accounts[0];
@@ -1481,12 +1481,12 @@ namespace AmiBroker.Controllers
                 }
             });
             // reqAccountUpdate to get portfolio for each account
-            for (int i = 1; i < accounts.Count(); i++)
+            for (int i = 0; i < accounts.Count(); i++)
             {
                 Client.RequestAccountUpdates(true, accounts[i]);
                 Thread.Sleep(1000);
             }
-            Client.RequestAccountUpdates(true, accounts[0]);
+            //Client.RequestAccountUpdates(true, accounts[0]);
             last_req_account = accounts[0];
         }
         private void eh_OpenOrder(object sender, OpenOrderEventArgs e)
@@ -1498,7 +1498,7 @@ namespace AmiBroker.Controllers
                 {
                     dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.OrderId);
                 }
-                
+
                 if (dOrder == null)
                 {
                     dOrder = new DisplayedOrder()
@@ -1529,16 +1529,16 @@ namespace AmiBroker.Controllers
                     };
                     lock (MainViewModel.orderInfoListLock)
                     {
-                        if (MainVM.OrderInfoList.Any(x => x.Value.RealOrderId == e.OrderId))
+                        if (MainVM.OrderInfoList.Any(x => x.Value.OrderId == ConnParam.AccName + e.OrderId))
                         {
-                            OrderInfo oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.RealOrderId == e.OrderId).Value;
+                            OrderInfo oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + e.OrderId).Value;
                             Strategy strategy = oi.Strategy;
                             if (strategy != null)
                                 dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
                                                 + "." + oi.OrderLog.Slippage;
 
                         }
-                    }                    
+                    }
                     MainVM.InsertOrder(dOrder);
                 }
             });
@@ -1547,7 +1547,7 @@ namespace AmiBroker.Controllers
         private void eh_OrderStatus(object sender, OrderStatusEventArgs e)
         {
             // current filled/remaining
-            int filled = 0; 
+            int filled = 0;
             int remaining = 0;
             OrderInfo oi = null;
             if (MainVM.OrderInfoList.ContainsKey(ConnParam.AccName + e.OrderId))
@@ -1561,7 +1561,7 @@ namespace AmiBroker.Controllers
                 filled = e.Filled;
                 remaining = e.Remaining;
             }
-                
+
 
             MainVM.MinorLog(new Log()
             {
@@ -1632,9 +1632,9 @@ namespace AmiBroker.Controllers
                     lock (MainViewModel.updatedOrdersLock)
                     {
                         displayedOrder = MainVM.UpdatedOrders.LastOrDefault(x => x.Filled == filled &&
-                                                          x.RealOrderId == e.OrderId &&
+                                                          x.OrderId == ConnParam.AccName + e.OrderId &&
                                                           x.Remaining == remaining);
-                    }                    
+                    }
 
                     // in case partially filled order canceled, (PendingCancel or Submitted) and Canceled will be issued with same filled and remaining
                     bool duplicatedFound = false;
@@ -1686,7 +1686,7 @@ namespace AmiBroker.Controllers
                     else
                     {
                         MainVM.InsertUpdatedOrder(dOrder);
-                    }                        
+                    }
 
                     oi.OrderStatus = dOrder;
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
@@ -1698,7 +1698,7 @@ namespace AmiBroker.Controllers
                     dOrder.PlacedTime = oi.OrderLog.OrderSentTime;
 
                     switch (e.Status)
-                    {   
+                    {
                         case OrderStatus.Inactive:
                             break;
                         case OrderStatus.PreSubmitted:
@@ -1718,21 +1718,21 @@ namespace AmiBroker.Controllers
                             prev_filled = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].Filled;
                             prev_remaining = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].Remaining;
 
-                        
+
                             // update batch PosSize
                             if (e.Status == OrderStatus.ApiCancelled || e.Status == OrderStatus.Canceled)
                             {
                                 // if duplicated found, only remaining will be passed as canceled amount
                                 // since filled has been passed when PartiallyFilled issued
                                 //if (duplicatedFound)
-                                    // only canceled should be calculated
-                                   // OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
+                                // only canceled should be calculated
+                                // OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
                                 //else
                                 OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, 0, remaining, e.AverageFillPrice, oi.ModifiedAsMarketOrder);
                             }
                             else
                                 OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, remaining, 0, e.AverageFillPrice);
-                                
+
 
                             int cur_filled = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].Filled;
                             int cur_remaining = OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].Remaining;
@@ -1795,7 +1795,7 @@ namespace AmiBroker.Controllers
                                     scriptStat.ShortPosition -= cur_filled - prev_filled;
                                 }
                             }
-                            
+
                             // update account status if canceled
                             if ((e.Status == OrderStatus.ApiCancelled || e.Status == OrderStatus.Canceled) && filled == 0)
                                 AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo, true);
@@ -1805,13 +1805,13 @@ namespace AmiBroker.Controllers
 
                             MainVM.MinorLog(new Log
                             {
-                                Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}", 
+                                Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}",
                                 strategyStat.Status.ToString(), strategyStat.LongPosition, strategyStat.ShortPosition),
                                 Source = string.Format("BatchNo:{0}, OrderId:{1}", oi.BatchNo, oi.RealOrderId.ToString()),
                                 Time = DateTime.Now,
                             });
                             break;
-                            
+
                     }
                 }
             }
@@ -1865,13 +1865,13 @@ namespace AmiBroker.Controllers
             });
         }
         private void eh_Error(object sender, ErrorEventArgs e)
-        {            
+        {
             string msg = e.ErrorMsg;
             OrderInfo oi = null;
             lock (MainViewModel.orderInfoListLock)
             {
                 oi = MainVM.OrderInfoList.FirstOrDefault(x => x.Value.OrderId == ConnParam.AccName + e.TickerId).Value;
-            }            
+            }
             if (oi != null)
             {
                 oi.Error = e.ErrorMsg;
@@ -1887,12 +1887,12 @@ namespace AmiBroker.Controllers
                         AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
 
                     // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)
-                    bool canceledByError = false;                    
+                    bool canceledByError = false;
                     if (e.ErrorMsg.ToLower().Contains("order rejected"))
                     {
                         // only whole order got canceled
                         if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
-                        {                            
+                        {
                             args.Filled = 0;
                             args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
                             args.Status = OrderStatus.ApiCancelled;
@@ -1900,7 +1900,7 @@ namespace AmiBroker.Controllers
                             args.WhyHeld = e.ErrorMsg.ToLower().Contains("insufficient") ? "canceled due to insufficient equity" : "the exchange is closed";
                             eh_OrderStatus(this, args);
                             canceledByError = true;
-                        }                                              
+                        }
                     }
 
                     // deal with Duplicated Order Id
@@ -1916,7 +1916,7 @@ namespace AmiBroker.Controllers
                         }
                         if (dOrder == null)
                         {
-                            dOrder = MakeDisplayedOrder(e.TickerId);                            
+                            dOrder = MakeDisplayedOrder(e.TickerId);
                             MainVM.InsertOrder(dOrder);
                         }
 
@@ -2038,7 +2038,7 @@ namespace AmiBroker.Controllers
 
             foreach (var item in MainVM.Portfolio.ToList())
             {
-                if (item.Position > 0 && Accounts.Any(x => x.Name == item.Account) && last_req_account != item.Account)
+                if (item.Position > 0 && Accounts.Any(x => x.Name == item.Account))
                 {
                     Client.RequestAccountUpdates(true, item.Account);
                     Thread.Sleep(1000);
@@ -2049,7 +2049,7 @@ namespace AmiBroker.Controllers
                         Source = "RefreshPortfolio",
                         Time = DateTime.Now
                     });
-                }                    
+                }
             }
         }
         // make up a virtual DisplayedOrder

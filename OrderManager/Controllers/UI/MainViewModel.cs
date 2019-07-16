@@ -401,7 +401,7 @@ namespace AmiBroker.Controllers
                 MinorLog(new Log
                 {
                     Text = string.Format("OrderId:{0}, status:{1}, filled:{2}, remaining:{3}",
-                    dOrder.RealOrderId, dOrder.Status, dOrder.Filled, dOrder.Remaining),
+                    dOrder.OrderId, dOrder.Status, dOrder.Filled, dOrder.Remaining),
                     Source = "Insert UpdatedOrder",
                     Time = DateTime.Now
                 });

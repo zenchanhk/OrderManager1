@@ -114,7 +114,7 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
-        [JsonIgnore]
+        
         public string DateTimeFormat { get; set; }
         [JsonIgnore]
         public BarInterval BarInterval { get; set; } = BarInterval.K1Min;
