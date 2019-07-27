@@ -36,7 +36,9 @@ namespace AmiBroker.OrderManager
         PreForceExitLong = 8,
         PreForceExitShort = 9,
         FinalForceExitLong = 10,
-        FinalForceExitShort = 11
+        FinalForceExitShort = 11,
+        CheckPendingOrderLong = 12,
+        CheckPendingOrderShort = 13
     }
     public enum ClosePositionAction
     {
@@ -790,7 +792,17 @@ namespace AmiBroker.OrderManager
             }
             set { _pForceExitOrderForShort = value; }
         }
-
+        // reset in case new day
+        public void ResetForNewDay()
+        {
+            foreach (var acc in AccountStat)
+            {                
+                acc.Value.LongEntry.Clear();
+                acc.Value.ShortEntry.Clear();
+                acc.Value.LongAttemps = 0;
+                acc.Value.ShortAttemps = 0;
+            }
+        }
         public void Clear()
         {
             MaxEntriesPerDay = 0;
@@ -983,7 +995,7 @@ namespace AmiBroker.OrderManager
          * 2. CheckingPendingOrders()
          * 3. OrderInfo generated
          */
-        public void CheckPendingOrders(float curPrice, TypeSide typeSide)
+        public async void CheckPendingOrders(float curPrice, TypeSide typeSide)
         {
             foreach (var stat in AccountStat)
             {
@@ -1080,8 +1092,8 @@ namespace AmiBroker.OrderManager
                             activeActionAfter[activeOrderAction].IsTriggered = true;
                             MainViewModel.Instance.MinorLog(new Log
                             {
-                                Text = string.Format("Triggered: Stop:{0}, Limit:{1}, Base:{2}",
-                                oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice),
+                                Text = string.Format("Triggered: OrderId:{4}, Stop:{0}, Limit:{1}, Base:{2}, CurPrice:{3}",
+                                oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice, curPrice, oi.RealOrderId),
                                 Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
                                 Time = DateTime.Now,
                             });
@@ -1109,6 +1121,7 @@ namespace AmiBroker.OrderManager
                     bool cond_timeout = activeActionAfter[activeOrderAction].StopBreakTime != null ? activeActionAfter[activeOrderAction].Duration >= activeActionAfter[activeOrderAction].HoldDuration && activeActionAfter[activeOrderAction].HoldDuration > 0 : false;
                     bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;
                     List<int> ids = new List<int>();
+                    List<int> failedIds = new List<int>();
                     if (cond_point || cond_timeout)
                     {
                         if (activeOrderAction == OrderAction.Short || activeOrderAction == OrderAction.Buy)
@@ -1126,18 +1139,32 @@ namespace AmiBroker.OrderManager
                         }
                         else
                         {
-                            foreach (var info in orderInfos)
+                            List<OrderInfo> ois = orderInfos.ToList();
+                            foreach (var info in ois.ToList())
                             {
-                                controller.CancelOrder(info.RealOrderId);
                                 info.ModifiedAsMarketOrder = true;
-                                ids.Add(info.RealOrderId);  // used for logging
+                                bool success = await controller.CancelOrderAsync(info.RealOrderId);
+                                if (!success)
+                                {
+                                    ois.Remove(info);
+                                    failedIds.Add(info.RealOrderId);
+                                }                                    
+                                else
+                                    ids.Add(info.RealOrderId);  // used for logging
                             }
-                            controller.ModifyOrder(orderInfos);
-                            message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
-                                cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
-                                cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
-                                + activeActionAfter[activeOrderAction].Points : "unknown reason",
-                                string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                            if (ois.Count > 0)
+                            {
+                                controller.ModifyOrder(ois);
+                                message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                    cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
+                                    cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
+                                    + activeActionAfter[activeOrderAction].Points : "unknown reason",
+                                    string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                            }
+                            if (failedIds.Count > 0)
+                            {
+                                message += string.Format("\nOrders [{0}] being modified as MarketOrder failed", string.Join(", ", failedIds));
+                            }
                         }
                     }
 
@@ -1168,8 +1195,8 @@ namespace AmiBroker.OrderManager
                     // close all position for current account
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
-                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitLong, DateTime.Now, orderType);
-                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitShort, DateTime.Now, orderType);
+                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitLong, DateTime.Now, orderType, 0);
+                    Controllers.OrderManager.ProcessSignal(Script, this, OrderAction.FinalForceExitShort, DateTime.Now, orderType, 0);
                     /*
                     IController controller = item.Value.Account.Controller;
                     BaseStat scriptStat = Script.AccountStat[item.Value.Account.Name];
@@ -1289,30 +1316,41 @@ namespace AmiBroker.OrderManager
                 GlobalExceptionHandler.HandleException("Strategy.CloseAllPosition", ex);
             }
 
-        }
-        // reset in case new day
-        public void ResetForNewDay()
-        {
-            foreach (var acc in LongAccounts)
-            {
-                AccountStat[acc.Name].LongEntry.Clear();
-                AccountStat[acc.Name].ShortEntry.Clear();
-                AccountStat[acc.Name].LongAttemps = 0;
-                AccountStat[acc.Name].ShortAttemps = 0;
-            }
-            foreach (var acc in ShortAccounts)
-            {
-                AccountStat[acc.Name].LongEntry.Clear();
-                AccountStat[acc.Name].ShortEntry.Clear();
-                AccountStat[acc.Name].LongAttemps = 0;
-                AccountStat[acc.Name].ShortAttemps = 0;
-            }
-        }
+        }        
 
         public void AFLStatusCallback(AccountStatus status)
         {
             // sometimes, it doesn't work well
             //AFMisc.StaticVarSet(Name, (int)status);
+        }
+        public void Reset(Script script)
+        {
+            this.Script = script;
+            this.Symbol = script.Symbol;
+            AdaptiveProfitStopforLong.Strategy = this;
+            AdaptiveProfitStopforLong.ActionType = ActionType.Long;
+            AdaptiveProfitStopforShort.Strategy = this;
+            AdaptiveProfitStopforShort.ActionType = ActionType.Short;
+            ForceExitOrderForLong.Strategy = this;
+            ForceExitOrderForLong.ActionType = ActionType.Long;
+            ForceExitOrderForShort.Strategy = this;
+            ForceExitOrderForShort.ActionType = ActionType.Short;
+            var accounts = ShortAccounts.ToList();
+            ShortAccounts.Clear();
+            foreach (AccountInfo acc in accounts)
+            {
+                AccountInfo tmp = Script.Symbol.AccountCandidates.FirstOrDefault(x => x.Name == acc.Name);
+                if (tmp != null)
+                    ShortAccounts.Add(tmp);
+            }
+            accounts = LongAccounts.ToList();
+            LongAccounts.Clear();
+            foreach (AccountInfo acc in accounts)
+            {
+                AccountInfo tmp = Script.Symbol.AccountCandidates.FirstOrDefault(x => x.Name == acc.Name);
+                if (tmp != null)
+                    LongAccounts.Add(tmp);
+            }
         }
         public void CopyFrom(Strategy strategy)
         {
@@ -1329,8 +1367,8 @@ namespace AmiBroker.OrderManager
             IsForcedExitForLong = strategy.IsForcedExitForLong;
             IsForcedExitForShort = strategy.IsForcedExitForShort;
 
-            LongActionAfter = strategy.LongActionAfter.CloneObject();
-            ShortActionAfter = strategy.ShortActionAfter.CloneObject();
+            LongActionAfter = strategy.LongActionAfter;
+            ShortActionAfter = strategy.ShortActionAfter;
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -1454,30 +1492,21 @@ namespace AmiBroker.OrderManager
                 Strategies.Remove(item);
             }
         }
-        public void ResetForNewDay()
-        {
-            foreach (var acc in LongAccounts)
-            {
-                AccountStat[acc.Name].LongEntry.Clear();
-                AccountStat[acc.Name].ShortEntry.Clear();
-                AccountStat[acc.Name].LongAttemps = 0;
-                AccountStat[acc.Name].ShortAttemps = 0;
-            }
-            foreach (var acc in ShortAccounts)
-            {
-                AccountStat[acc.Name].LongEntry.Clear();
-                AccountStat[acc.Name].ShortEntry.Clear();
-                AccountStat[acc.Name].LongAttemps = 0;
-                AccountStat[acc.Name].ShortAttemps = 0;
-            }
-        }
+        
         public void CopyFrom(Script script)
         {
             foreach (var item in script.Strategies)
             {
                 var tmp = Strategies.FirstOrDefault(x => x.Name == item.Name);
                 if (tmp != null)
+                {
                     tmp.CopyFrom(item);
+                    /*
+                    Strategies.Remove(tmp);
+                    Strategies.Add(item);
+                    item.Reset(this);*/
+                }
+
             }
             MaxEntriesPerDay = script.MaxEntriesPerDay;
             MaxOpenPosition = script.MaxOpenPosition;
@@ -1715,8 +1744,17 @@ namespace AmiBroker.OrderManager
         {
             get { return _pMinTick; }
             set { _UpdateField(ref _pMinTick, value); }
-        }
 
+        }
+        private float _pDataErrorTolerance = (float)0.5; // in percentage
+        [Category("Details")]
+        [DisplayName("Data Error Tolerance")]
+        public float DataErrorTolerance
+        {
+            get { return _pDataErrorTolerance; }
+            set { _UpdateField(ref _pDataErrorTolerance, value); }
+
+        }
         private string _pTimeZoneId;
         [Category("Details")]
         [DisplayName("Time Zone")]

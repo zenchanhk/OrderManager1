@@ -193,8 +193,14 @@
                                     <TextBox Text="{Binding LoggingPath}" ToolTip="The path of logging files"/>
                                 </DockPanel>
                             </StackPanel>
-                            
-                            
+
+                            <StackPanel Margin="10, 0">
+                                <TextBlock TextWrapping="Wrap" 
+                                       Text="Please enter comma-separated list of message that should NOT be ignored even if duplicated." />
+                                <TextBox Name="msg_aloow_list" Margin="0, 5, 0, 0" Height="70"
+                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                     Text="{Binding LogAllowDuplicated}"/>
+                            </StackPanel>
                         </StackPanel>
                     </GroupBox>
                 </TabItem>

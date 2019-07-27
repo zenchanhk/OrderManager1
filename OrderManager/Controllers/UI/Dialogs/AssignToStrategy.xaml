@@ -32,6 +32,7 @@
         <TextBlock Grid.Column="1" Text="{Binding Symbol}" Margin="5"/>
         <TextBlock Text="Position:" Margin="5" Grid.Row="1" VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="1" Margin="5">
+            <TextBlock Text="{Binding Side}" Margin="1"/>
             <controls:NumericUpDown  HorizontalAlignment="Left" Width="70"
                                     Value="{Binding AssignedPosition, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" 
                                     MinValue="1" MaxValue="{Binding AvailablePosition}" Increment="1"

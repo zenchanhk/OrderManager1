@@ -752,7 +752,7 @@ namespace AmiBroker.Controllers
                 List<int> slippages = new List<int>();
                 List<int> posSizes = new List<int>();
                 List<decimal> lmtPrices = new List<decimal>();
-                foreach (var orderInfo in orderInfos)
+                foreach (var orderInfo in orderInfos.ToList())
                 {
                     orderInfo.OrderLog.OrgPrice = lmtPrice;
                     Order order = orderInfo.Order;
@@ -835,11 +835,12 @@ namespace AmiBroker.Controllers
             {
                 // combined all pending orders into one Market Order
                 int quantity = 0;
-                foreach (var orderInfo in orderInfos)
+                foreach (var orderInfo in orderInfos.ToList())
                 {
                     if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
                     {
-                        quantity += orderInfo.OrderStatus != null ? (int)orderInfo.OrderStatus.Remaining :
+                        quantity += orderInfo.OrderStatus != null ? 
+                            (int)orderInfo.OrderStatus.Remaining * orderInfo.Strategy.Symbol.RoundLotSize :
                                 orderInfo.OrderLog.PosSize * orderInfo.Strategy.Symbol.RoundLotSize;
                     }
                     oi = orderInfo;
@@ -1344,7 +1345,7 @@ namespace AmiBroker.Controllers
             {
                 IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction]
                     .Where(x => x.BatchNo == oi.BatchNo);
-                foreach (var orderInfo in orderInfos)
+                foreach (var orderInfo in orderInfos.ToList())
                 {
                     if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
                     {
@@ -1380,7 +1381,7 @@ namespace AmiBroker.Controllers
                 }
                 IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction]
                     .Where(x => x.BatchNo == oi.BatchNo);
-                foreach (var orderInfo in orderInfos)
+                foreach (var orderInfo in orderInfos.ToList())
                 {
                     if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
                     {
@@ -1566,7 +1567,7 @@ namespace AmiBroker.Controllers
             MainVM.MinorLog(new Log()
             {
                 Text = string.Format("Coming order status - Id: {0}, filled: {1}, remaining: {2}, status:{3}",
-                                                e.OrderId, e.Filled, e.Remaining, e.Status),
+                                                e.OrderId, filled, remaining, e.Status),
                 Source = "IB API(order status event)",
                 Time = DateTime.Now
             });
@@ -1590,7 +1591,7 @@ namespace AmiBroker.Controllers
                         lock (MainViewModel.ordersLock)
                         {
                             tmp = MainVM.Orders.LastOrDefault(x => x.OrderId == ConnParam.AccName + e.OrderId &&
-                                                                x.Remaining == e.Remaining && x.Status == e.Status);
+                                                                x.Remaining == remaining && x.Status == e.Status);
                         }
                         if (tmp != null)
                             dOrder = tmp;
@@ -1598,7 +1599,7 @@ namespace AmiBroker.Controllers
                     if (tmp == null)
                     {
                         dOrder = dOrder.ShallowCopy();
-                        dOrder.Time = DateTime.Now;
+                        dOrder.Time = DateTime.Now;                        
                         //if (oi != null)
                         {
                             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
@@ -1620,6 +1621,8 @@ namespace AmiBroker.Controllers
                     dOrder.Remaining = remaining;
                     dOrder.AvgPrice = e.AverageFillPrice;
                     dOrder.Time = DateTime.Now;
+                    if (oi != null)
+                        dOrder.PlacedTime = oi.OrderLog.OrderSentTime;
                 });
             }
 
@@ -1668,13 +1671,13 @@ namespace AmiBroker.Controllers
                             MainVM.MinorLog(new Log()
                             {
                                 Text = string.Format("Duplicated order status found for order Id: {0}, filled: {1}, remaining: {2}, current status:{3}, previous status:{4}",
-                                                e.OrderId, e.Filled, e.Remaining, e.Status, displayedOrder.Status),
+                                                e.OrderId, filled, remaining, e.Status, displayedOrder.Status),
                                 Source = "IB API(order status event)",
                                 Time = DateTime.Now
                             });
 
                             if (displayedOrder.Status != e.Status && displayedOrder.Status != OrderStatus.Filled &&
-                                displayedOrder.Status != OrderStatus.Canceled)
+                                displayedOrder.Status != OrderStatus.Canceled && displayedOrder.Status != OrderStatus.ApiCancelled)
                             {
                                 // update status
                                 oi.OrderStatus = dOrder;
@@ -1805,8 +1808,9 @@ namespace AmiBroker.Controllers
 
                             MainVM.MinorLog(new Log
                             {
-                                Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}",
-                                strategyStat.Status.ToString(), strategyStat.LongPosition, strategyStat.ShortPosition),
+                                Text = string.Format("After status updated: {0}, long position:{1}, short position:{2}, IsCompleted:{3}",
+                                strategyStat.Status.ToString(), strategyStat.LongPosition, strategyStat.ShortPosition,
+                                OrderManager.BatchPosSize[oi.Account.Name + oi.BatchNo].IsCompleted),
                                 Source = string.Format("BatchNo:{0}, OrderId:{1}", oi.BatchNo, oi.RealOrderId.ToString()),
                                 Time = DateTime.Now,
                             });
@@ -1882,58 +1886,62 @@ namespace AmiBroker.Controllers
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
                     string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
-                    // ignore future placed order error message
-                    if (e.ErrorMsg.ToLower().Contains("exception") || e.ErrorMsg.ToLower().Contains("notconnected"))
-                        AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
 
-                    // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)
                     bool canceledByError = false;
-                    if (e.ErrorMsg.ToLower().Contains("order rejected"))
+                    if (!string.IsNullOrEmpty(e.ErrorMsg))
                     {
-                        // only whole order got canceled
-                        if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
-                        {
-                            args.Filled = 0;
-                            args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
-                            args.Status = OrderStatus.ApiCancelled;
-                            args.OrderId = e.TickerId;
-                            args.WhyHeld = e.ErrorMsg.ToLower().Contains("insufficient") ? "canceled due to insufficient equity" : "the exchange is closed";
-                            eh_OrderStatus(this, args);
-                            canceledByError = true;
-                        }
-                    }
+                        // ignore future placed order error message
+                        if (e.ErrorMsg.ToLower().Contains("exception") || e.ErrorMsg.ToLower().Contains("notconnected"))
+                            AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
 
-                    // deal with Duplicated Order Id
-                    // deal with disappeared PreSubmitted orders
-                    if (e.ErrorMsg.ToLower().Contains("duplicate order id") ||
-                        e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found"))
-                    {
-                        // insert a makeup DisplayOrder into mainVM.Orders if not found
-                        DisplayedOrder dOrder = null;
-                        lock (MainViewModel.ordersLock)
+                        // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)                        
+                        if (e.ErrorMsg.ToLower().Contains("order rejected"))
                         {
-                            dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.TickerId);
-                        }
-                        if (dOrder == null)
-                        {
-                            dOrder = MakeDisplayedOrder(e.TickerId);
-                            MainVM.InsertOrder(dOrder);
+                            // only whole order got canceled
+                            if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
+                            {
+                                args.Filled = 0;
+                                args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                                args.Status = OrderStatus.ApiCancelled;
+                                args.OrderId = e.TickerId;
+                                args.WhyHeld = e.ErrorMsg.ToLower().Contains("insufficient") ? "canceled due to insufficient equity" : "the exchange is closed";
+                                eh_OrderStatus(this, args);
+                                canceledByError = true;
+                            }
                         }
 
-                        // issue an ApiCanceled event
-                        if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive ||
-                            oi.OrderStatus.Status == OrderStatus.PreSubmitted)
+                        // deal with Duplicated Order Id
+                        // deal with disappeared PreSubmitted orders
+                        if (e.ErrorMsg.ToLower().Contains("duplicate order id") ||
+                            e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found"))
                         {
-                            args.Filled = oi.OrderStatus == null ? 0 : (int)oi.OrderStatus.Filled;
-                            args.Remaining = oi.OrderStatus == null ? oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize :
-                                (int)oi.OrderStatus.Remaining;
-                            args.Status = OrderStatus.ApiCancelled;
-                            args.OrderId = e.TickerId;
-                            args.WhyHeld = e.ErrorMsg.ToLower().Contains("duplicate order id") ?
-                                "canceled due to duplicated order id (maybe insufficient equity)" :
-                                "orderId cannot be found";
-                            eh_OrderStatus(this, args);
-                            canceledByError = true;
+                            // insert a makeup DisplayOrder into mainVM.Orders if not found
+                            DisplayedOrder dOrder = null;
+                            lock (MainViewModel.ordersLock)
+                            {
+                                dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.TickerId);
+                            }
+                            if (dOrder == null)
+                            {
+                                dOrder = MakeDisplayedOrder(e.TickerId);
+                                MainVM.InsertOrder(dOrder);
+                            }
+
+                            // issue an ApiCanceled event
+                            if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive ||
+                                oi.OrderStatus.Status == OrderStatus.PreSubmitted)
+                            {
+                                args.Filled = oi.OrderStatus == null ? 0 : (int)oi.OrderStatus.Filled;
+                                args.Remaining = oi.OrderStatus == null ? oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize :
+                                    (int)oi.OrderStatus.Remaining * strategy.Symbol.RoundLotSize;
+                                args.Status = OrderStatus.ApiCancelled;
+                                args.OrderId = e.TickerId;
+                                args.WhyHeld = e.ErrorMsg.ToLower().Contains("duplicate order id") ?
+                                    "canceled due to duplicated order id (maybe insufficient equity)" :
+                                    "orderId cannot be found";
+                                eh_OrderStatus(this, args);
+                                canceledByError = true;
+                            }
                         }
                     }
 

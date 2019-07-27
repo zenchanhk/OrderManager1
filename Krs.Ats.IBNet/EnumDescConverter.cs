@@ -166,7 +166,8 @@ namespace Krs.Ats.IBNet
                 }
             }
 
-            throw new InvalidCastException(string.Concat("The received value ", description, " was unrecognized as an ", value.Name, " enum value."));
+            return AgentDescription.None;
+            //throw new InvalidCastException(string.Concat("The received value ", description, " was unrecognized as an ", value.Name, " enum value."));
         }
     }
 }

@@ -286,9 +286,11 @@ namespace AmiBroker.Controllers
         // store PosSize for each BatchNo + AccountName = key
         public static Dictionary<string, BatchPosSize> BatchPosSize { get; } = new Dictionary<string, BatchPosSize>();
 
-        private static Dictionary<string, object> lockOjbs = new Dictionary<string, object>();
+        private static Dictionary<string, Dictionary<OrderAction, object>> lockOjbs = new Dictionary<string, Dictionary<OrderAction, object>>();
+        //private static Dictionary<string, object> lockOjbs = new Dictionary<string, object>();
 
         private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>();
+        private static Dictionary<string, float> lastClose = new Dictionary<string, float>();
         // key: ticker name + strategy name + interval
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
 
@@ -358,12 +360,13 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private static float close = 0;
+        //private static float close = 0;
         [ABMethod]
         public void IBC(string scriptName)
         {
             try
             {
+                float close = 0;
                 if (mainWin == null) return;
                 if (mainVM != null)
                     mainVM.MinorLog(new Log
@@ -397,17 +400,53 @@ namespace AmiBroker.Controllers
                     return;
                 }
 
-                string symbolName = AFInfo.Name();
+                SymbolInAction symbol = Initialize(scriptName);
+                if (symbol == null || !symbol.IsEnabled) return;
 
+
+                string symbolName = AFInfo.Name();
+                close = Close[BarCount - 1];
+                /*
+                List<string> text = new List<string>();
+                text.Add(symbol.Name);
+                text.Add(AFInfo.Name());
+                text.Add(scriptName);
+                text.Add(close.ToString());
+                mainVM.Log4("h:\\data\\log\\text.csv", string.Join(",", text));*/
+
+                /*
+                 * checking for incoming data error
+                if (lastClose.ContainsKey(symbolName))
+                {
+                    if (lastBarDateTime.ContainsKey(symbolName))
+                    {
+                        TimeSpan ts = logTime.Subtract(lastBarDateTime[symbolName]);
+                        if (diff.Days * 60 * 24 + diff.Hours * 60 + diff.Minutes < 5 && 
+                            Math.Abs(close - lastClose[symbolName]) > symbol.DataErrorTolerance * lastClose[symbolName])
+                        {
+                            mainVM.MinorLog(new Log
+                            {
+                                Text = string.Format("Incoming data error: current price{0}, last price{1}", close, lastClose[symbolName]),
+                                Source = "IBC." + scriptName,
+                                Time = DateTime.Now
+                            });
+                            return;
+                        }
+                    }
+                    lastClose[symbolName] = close;
+                }                    
+                else
+                    lastClose.Add(symbolName, close);*/
+
+                // log last bar time
                 if (lastBarDateTime.ContainsKey(symbolName))
                 {
                     lastBarDateTime[symbolName] = logTime;
                 }
                 else
                     lastBarDateTime.Add(symbolName, logTime);
-
-                SymbolInAction symbol = Initialize(scriptName);
-                if (symbol == null || !symbol.IsEnabled) return;
+                                
+                
 
                 Script script = symbol.Scripts.FirstOrDefault(x => x.Name == scriptName);
                 if (script != null)
@@ -421,6 +460,12 @@ namespace AmiBroker.Controllers
                         bool newDay = ATFloat.IsTrue(script.DayStart.GetArray()[BarCount - 1]);
                         if (newDay)
                         {
+                            mainVM.MinorLog(new Log
+                            {
+                                Text = "Day Start reached, clear entries",
+                                Source = "IBC",
+                                Time = DateTime.Now
+                            });
                             script.ResetForNewDay();
                             foreach (Strategy strategy in script.Strategies)
                             {
@@ -433,20 +478,43 @@ namespace AmiBroker.Controllers
                     {
                         if (!strategy.IsEnabled) continue;
 
-                        string key = symbolName + strategy.Name + AFTimeFrame.Interval();
+                        string key = symbolName + scriptName + strategy.Name + AFTimeFrame.Interval();
 
                         if (!lastBarInfo.ContainsKey(key))
                             lastBarInfo.Add(key, new BarInfo() { BarCount = BarCount, DateTime = logTime });
 
                         if (!lockOjbs.ContainsKey(key))
-                            lockOjbs.Add(key, new object());
+                        {
+                            Dictionary<OrderAction, object> objs = new Dictionary<OrderAction, object>();
+                            objs.Add(OrderAction.Buy, new object());
+                            objs.Add(OrderAction.Sell, new object());
+                            objs.Add(OrderAction.Short, new object());
+                            objs.Add(OrderAction.Cover, new object());
+                            objs.Add(OrderAction.APSLong, new object());
+                            objs.Add(OrderAction.APSShort, new object());
+                            objs.Add(OrderAction.FinalForceExitLong, new object());
+                            objs.Add(OrderAction.FinalForceExitShort, new object());
+                            objs.Add(OrderAction.CheckPendingOrderLong, new object());
+                            objs.Add(OrderAction.CheckPendingOrderShort, new object());
+                            lockOjbs.Add(key, objs);
+                        }                            
 
-                        // check pending order
-                        close = Close[BarCount - 1];
+                        // check pending order                        
                         if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
-                            Task.Run(() => strategy.CheckPendingOrders(close, TypeSide.Long));
+                            Task.Run(() => {
+                                lock (lockOjbs[key][OrderAction.CheckPendingOrderLong])
+                                {
+                                    strategy.CheckPendingOrders(close, TypeSide.Long);
+                                }                                
+                                });
                         if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
-                            Task.Run(() => strategy.CheckPendingOrders(close, TypeSide.Short));
+                            Task.Run(() =>
+                            {
+                                lock (lockOjbs[key][OrderAction.CheckPendingOrderShort])
+                                {
+                                    strategy.CheckPendingOrders(close, TypeSide.Short);
+                                }
+                            });
 
                         // fillin prices from AB
                         //strategy.CurrentPrices.Clear();
@@ -521,7 +589,13 @@ namespace AmiBroker.Controllers
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Buy][0])))
                                 {
-                                    Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.Buy])
+                                        {
+                                            ProcessSignal(script, strategy, OrderAction.Buy, logTime, null, close);
+                                        }
+                                    });
                                 }
                                 lastBarInfo[key].BuySignal = signal;
 
@@ -532,7 +606,13 @@ namespace AmiBroker.Controllers
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Sell][0])))
                                 {
-                                    Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.Sell])
+                                        {
+                                            ProcessSignal(script, strategy, OrderAction.Sell, logTime, null, close);
+                                        }
+                                    });
                                 }
                                 lastBarInfo[key].SellSignal = signal;
                             }
@@ -544,7 +624,13 @@ namespace AmiBroker.Controllers
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Short][0])))
                                 {
-                                    Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.Short])
+                                        {
+                                            ProcessSignal(script, strategy, OrderAction.Short, logTime, null, close);
+                                        }
+                                    });
                                 }
                                 lastBarInfo[key].ShortSignal = signal;
 
@@ -554,7 +640,13 @@ namespace AmiBroker.Controllers
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Cover][0])))
                                 {
-                                    Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.Cover])
+                                        {
+                                            ProcessSignal(script, strategy, OrderAction.Cover, logTime, null, close);
+                                        }
+                                    });
                                 }
                                 lastBarInfo[key].CoverSignal = signal;
                             }
@@ -569,17 +661,41 @@ namespace AmiBroker.Controllers
                                 // checking if Adaptive Profit Stop apply
                                 //
                                 if (strategy.IsAPSAppliedforLong)
-                                    Task.Run(() => strategy.AdaptiveProfitStopforLong.Calc(close));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.APSLong])
+                                        {
+                                            strategy.AdaptiveProfitStopforLong.Calc(close, symbolName);
+                                        }
+                                    });
                                 if (strategy.IsAPSAppliedforShort)
-                                    Task.Run(() => strategy.AdaptiveProfitStopforShort.Calc(close));
-
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.APSShort])
+                                        {
+                                            strategy.AdaptiveProfitStopforShort.Calc(close, symbolName);
+                                        }
+                                    });
+                                
                                 //
                                 // checking if day end exit applied
                                 //
                                 if (strategy.IsForcedExitForLong)
-                                    Task.Run(() => strategy.ForceExitOrderForLong.Run(close));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.FinalForceExitLong])
+                                        {
+                                            strategy.ForceExitOrderForLong.Run(close);
+                                        }
+                                    });
                                 if (strategy.IsForcedExitForShort)
-                                    Task.Run(() => strategy.ForceExitOrderForShort.Run(close));
+                                    Task.Run(() =>
+                                    {
+                                        lock (lockOjbs[key][OrderAction.FinalForceExitShort])
+                                        {
+                                            strategy.ForceExitOrderForShort.Run(close);
+                                        }
+                                    });
                             }
 
                             // store last bar info
@@ -600,7 +716,7 @@ namespace AmiBroker.Controllers
             }
         }
 
-        public static bool ProcessSignal(Script script, Strategy strategy, OrderAction orderAction, DateTime logTime, BaseOrderType orderType = null)
+        public static bool ProcessSignal(Script script, Strategy strategy, OrderAction orderAction, DateTime logTime, BaseOrderType orderType, float curPrice)
         {
             // to identify if PlaceOrder successful or not for APS orders use
             // to reduce the process times for duplicated orders
@@ -611,7 +727,7 @@ namespace AmiBroker.Controllers
                 Log log = new Log
                 {
                     Time = DateTime.Now,
-                    Text = orderAction.ToString() + " signal generated", // + logTime.ToString("yyyMMdd HH:mm:ss"),
+                    Text = orderAction.ToString() + " signal generated" + (curPrice > 0 ? ", current price:" + curPrice : ""),
                     Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderAction.ToString()
                 };
 
@@ -634,7 +750,7 @@ namespace AmiBroker.Controllers
                     if (orderType == null)
                         orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
 
-                    if (ValidateSignal(account, strategy, strategy.AccountStat[account.Name], orderAction, orderType, out message, out warning))
+                    if (ValidateSignal(account, strategy, strategy.AccountStat[account.Name], orderAction, orderType, curPrice, out message, out warning))
                     {
                         if (batchNo == -1)
                             batchNo = BatchNo;
@@ -647,7 +763,7 @@ namespace AmiBroker.Controllers
                             BaseStat scriptStat = script.AccountStat[account.Name];
                             AccountStatusOp.SetActionInitStatus(strategyStat, scriptStat, strategy, orderAction);
                             AccountStatusOp.SetAttemps(ref strategyStat, orderAction);
-                            System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
+                            //System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
                             // IMPORTANT
                             // should be improved here, same type controller share Order Info and should be waiting here
                             // same accounts should be grouped together instead of using for-loop
@@ -731,7 +847,7 @@ namespace AmiBroker.Controllers
             return proc_result;
         }
 
-        private static bool CancelConflictOrder(Strategy strategy, BaseStat strategyStat, OrderAction action, OrderAction calledAction)
+        private async static Task<bool> CancelConflictOrder(Strategy strategy, BaseStat strategyStat, OrderAction action, OrderAction calledAction, bool isAsync = false)
         {
             try
             {
@@ -753,11 +869,19 @@ namespace AmiBroker.Controllers
                 else
                 {
                     bool result = true;
-                    foreach (var orderInfo in orderInfos)
+                    bool success = false;
+                    List<OrderInfo> ois = orderInfos.ToList();
+                    foreach (var orderInfo in ois.ToList())
                     {
-                        orderInfo.Account.Controller.CancelOrder(orderInfo.RealOrderId);
+                        if (!isAsync)
+                            orderInfo.Account.Controller.CancelOrder(orderInfo.RealOrderId);
+                        else
+                        {
+                            success = await orderInfo.Account.Controller.CancelOrderAsync(orderInfo.RealOrderId);
+                            if (!success) ois.Remove(orderInfo); 
+                        }
                     }
-                    string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList())
+                    string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", ois.Select(x => x.RealOrderId).ToList())
                         + "] for strategy - " + strategy.Name + " being cancelled" + "\n";
                     mainVM.Log(new Log
                     {
@@ -765,7 +889,8 @@ namespace AmiBroker.Controllers
                         Text = msg + " (OrderManager.CancelConflictOrder)",
                         Source = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
                     });
-                    return result;
+                    // if all cancel operation failed, return false; otherwise, return true
+                    return !(ois.Count == 0);
                 }
             }
             catch (Exception ex)
@@ -784,7 +909,7 @@ namespace AmiBroker.Controllers
          * compare STOP price to detemine which one is kept
          * */
         private static readonly string[] stpLmt = new string[] { "LmtPrice", "AuxPrice" };
-        private static bool ValidateSignal(AccountInfo account, Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, out string message, out string warning)
+        private static bool ValidateSignal(AccountInfo account, Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, float close, out string message, out string warning)
         {
             try
             {

@@ -221,6 +221,7 @@
                                 <xctk:PropertyDefinition TargetProperties="RoundLotSize" />
                                 <xctk:PropertyDefinition TargetProperties="MinOrderSize" />
                                 <xctk:PropertyDefinition TargetProperties="MaxOrderSize" />
+                                <xctk:PropertyDefinition TargetProperties="DataErrorTolerance" />
                             </xctk:PropertyGrid.PropertyDefinitions>
                         </xctk:PropertyGrid>
                     </StackPanel>
@@ -680,12 +681,14 @@
                                                 <Separator HorizontalAlignment="Stretch" />
                                             </DockPanel>
                                             <StackPanel Margin="3">
-                                                <TextBlock Text="Hint: 0 means disabled" Margin="0, 2"/>
+                                                
                                                 <StackPanel Orientation="Horizontal">
                                                     <ComboBox ItemsSource="{Binding DataContext.StopLossSource, ElementName=scriptTabView}"
                                                               SelectedIndex="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView}"/>
                                                     <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.Stoploss, ElementName=scriptTabView}"
-                                                                            MaxValue="1000" MinValue="0" Increment="1" Width="50" Margin="3, 0"
+                                                                            MaxValue="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView,
+                                                                                        Converter={StaticResource StoplossComboToMaxConverter}}" 
+                                                                            MinValue="0" Increment="1" Width="50" Margin="3, 0"
                                                                             Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView,
                                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=0}"/>
                                                     <TextBlock Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossAFL, ElementName=scriptTabView,
@@ -695,7 +698,14 @@
                                                                Background="LightGoldenrodYellow"
                                                                Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView,
                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=1}"/>
+                                                    <TextBlock Text="(0 means disabled)" Margin="2"/>
                                                 </StackPanel>
+                                                <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                                                    <TextBlock VerticalAlignment="Center" Text="Stoploss Price: " DockPanel.Dock="Left" />
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StopLossPrice, 
+                                                               ElementName=scriptTabView, StringFormat={}{0:0.######}}" Background="WhiteSmoke"
+                                                               DockPanel.Dock="Right"/>
+                                                </DockPanel>
                                                 <StackPanel HorizontalAlignment="Stretch" >
                                                     <TextBlock VerticalAlignment="Center" Text="Slippage: " />
                                                     <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.OT_stopLoss.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
@@ -1007,12 +1017,14 @@
                                                 <Separator HorizontalAlignment="Stretch" />
                                             </DockPanel>
                                             <StackPanel Margin="3">
-                                                <TextBlock Text="Hint: 0 means disabled" Margin="0, 2"/>
+                                                
                                                 <StackPanel Orientation="Horizontal">
                                                     <ComboBox ItemsSource="{Binding DataContext.StopLossSource, ElementName=scriptTabView}"
                                                               SelectedIndex="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView}"/>
                                                     <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Stoploss, ElementName=scriptTabView}"
-                                                                            MaxValue="1000" MinValue="0" Increment="1" Width="50" Margin="3, 0"
+                                                                            MaxValue="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView,
+                                                                                        Converter={StaticResource StoplossComboToMaxConverter}}" 
+                                                                            MinValue="0" Increment="1" Width="50" Margin="3, 0"
                                                                             Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView,
                                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=0}"/>
                                                     <TextBlock Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossAFL, ElementName=scriptTabView,
@@ -1022,7 +1034,14 @@
                                                                Background="LightGoldenrodYellow"
                                                                Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView,
                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=1}"/>
+                                                    <TextBlock Text="(0 means disabled)" Margin="2"/>
                                                 </StackPanel>
+                                                <DockPanel HorizontalAlignment="Stretch" LastChildFill="True"> 
+                                                    <TextBlock VerticalAlignment="Center" Text="Stoploss Price: " DockPanel.Dock="Left" />
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StopLossPrice, 
+                                                               ElementName=scriptTabView, StringFormat={}{0:0.######}}" Background="WhiteSmoke"
+                                                               DockPanel.Dock="Right"/>
+                                                </DockPanel>
                                                 <StackPanel HorizontalAlignment="Stretch" >
                                                     <TextBlock VerticalAlignment="Center" Text="Slippage: " />
                                                     <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.OT_stopLoss.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
@@ -1597,3 +1616,4 @@
         </StackPanel>        
     </Grid>    
 </UserControl>
+

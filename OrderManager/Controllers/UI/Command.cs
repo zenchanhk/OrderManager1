@@ -185,8 +185,9 @@ namespace AmiBroker.Controllers
 
             AssignToStrategyVM assignToStrategyVM = new AssignToStrategyVM();
             assignToStrategyVM.Strategies = strategies;
-            assignToStrategyVM.AvailablePosition = pos != 0 ? pos / roundLotSize : 0;
+            assignToStrategyVM.AvailablePosition = pos != 0 ? Math.Abs(pos / roundLotSize) : 0;
             assignToStrategyVM.Symbol = symbolName;
+            assignToStrategyVM.Side = pos > 0 ? "+" : "-";
             AssignToStrategy assignToStrategy = new AssignToStrategy();
             assignToStrategy.DataContext = assignToStrategyVM;
             assignToStrategy.ShowDialog();
@@ -199,7 +200,7 @@ namespace AmiBroker.Controllers
                 BaseStat strategyStat = strategy.AccountStat[((SymbolInMkt)parameter).Account];
                 BaseStat scriptStat = strategy.Script.AccountStat[((SymbolInMkt)parameter).Account];
                 
-                if (assignToStrategyVM.AssignedPosition > 0)
+                if (pos > 0)
                 {
                     strategyStat.LongPosition += assignToStrategyVM.AssignedPosition;
                     scriptStat.LongPosition += assignToStrategyVM.AssignedPosition;
@@ -209,7 +210,9 @@ namespace AmiBroker.Controllers
                     scriptStat.LongEntry.Add(entry);
                     scriptStat.LongStrategies.Add(strategy.Name);
                     // approximate entry price
-                    strategy.AdaptiveProfitStopforLong.EntryPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
+                    float avgPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
+                    strategy.AdaptiveProfitStopforLong.EntryPrice = avgPrice;
+                    strategyStat.LongAvgPrice = avgPrice;
                 }
                 else
                 {
@@ -221,7 +224,9 @@ namespace AmiBroker.Controllers
                     scriptStat.ShortEntry.Add(entry);
                     scriptStat.ShortStrategies.Add(strategy.Name);
                     // approximate entry price
-                    strategy.AdaptiveProfitStopforLong.EntryPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
+                    float avgPrice = ((float)((SymbolInMkt)parameter).AvgCost) / strategy.Symbol.PointValue;
+                    strategy.AdaptiveProfitStopforLong.EntryPrice = avgPrice;
+                    strategyStat.ShortAvgPrice = avgPrice;
                 }
             }
         }

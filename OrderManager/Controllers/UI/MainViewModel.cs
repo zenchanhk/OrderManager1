@@ -56,10 +56,12 @@ namespace AmiBroker.Controllers
         public readonly static object ordersLock = new object();
         public readonly static object updatedOrdersLock = new object();
         public readonly static object orderInfoListLock = new object();
-        public readonly static object minorLogLock = new object();
-        public readonly static object minorLogFileLock = new object();
-        public readonly static object msgFileLock = new object();
-        public readonly static object logFileLock = new object();
+        private readonly static object minorLogLock = new object();
+        private readonly static object minorLogFileLock = new object();
+        private readonly static object msgFileLock = new object();
+        private readonly static object logFileLock = new object();
+        private readonly static object log4FileLock = new object();
+        //public readonly static object orderInfoLock = new object();    // orderInfo
         // Icons
         public Image ImageSaveLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.ContentSaveAll, Util.Color.Indigo);
         public Image ImageRestoreLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.WindowRestore, Util.Color.Indigo);
@@ -127,13 +129,16 @@ namespace AmiBroker.Controllers
             OrderStatus.PendingSubmit, OrderStatus.Submitted, OrderStatus.PartiallyFilled, OrderStatus.PreSubmitted };
         public static IEnumerable<OrderInfo> GetUnfilledOrderInfo(IEnumerable<OrderInfo> orderInfos)
         {
-            OrderInfo info = orderInfos.Where(x => x.OrderStatus == null || 
-            (x.OrderStatus != null && IncompleteStatus.Any(y => y == x.OrderStatus?.Status) && x.OrderStatus.Remaining > 0)).LastOrDefault();
+            List<OrderInfo> infos = orderInfos.ToList();
+            OrderInfo info = infos.Where(x => x.OrderStatus == null ||
+                (x.OrderStatus != null && IncompleteStatus.Any(y => y == x.OrderStatus?.Status) && x.OrderStatus.Remaining > 0)).LastOrDefault();
+
             if (info != null)
-                return orderInfos.Where(x => x.BatchNo == info.BatchNo && (x.OrderStatus == null || 
+                return infos.Where(x => x.BatchNo == info.BatchNo && (x.OrderStatus == null ||
                                             IncompleteStatus.Any(y => y == x.OrderStatus?.Status)));
             else
                 return null;
+            
         }
         // singelton pattern
         public static MainViewModel Instance { get { return instance; } }
@@ -208,7 +213,9 @@ namespace AmiBroker.Controllers
             Weekdays.Add(new WeekDay { Value = 5, Name = "Fri" });
             Weekdays.Add(new WeekDay { Value = 6, Name = "Sat" });
 
-            StopLossSource.Add("User defined");
+            StopLossSource.Add("In Points/Dollars");
+            StopLossSource.Add("In Ticks");
+            StopLossSource.Add("In Percentage");
             StopLossSource.Add("From AFL script");
             //
             _hub.Subscribe<IController>(OnControllerConnected);
@@ -277,6 +284,29 @@ namespace AmiBroker.Controllers
                 Instance.OrderInfoList.Add(key, oi);
             }
         }
+
+        public void Log4(string filePath, string text, bool isAppend = true)
+        {            
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    FileStream fs = File.Create(filePath);
+                    fs.Close();
+                }
+                //lock (log4FileLock)
+                {
+                    using (var sw = new StreamWriter(filePath, isAppend))
+                    {
+                        sw.WriteLine(text);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GlobalExceptionHandler.HandleException("Log", ex);
+            }
+        }
         public void Log(Log log)
         {
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
@@ -311,48 +341,77 @@ namespace AmiBroker.Controllers
         }
         public void MinorLog(Log log)
         {
-            bool found = false;
-            if (UserPreference != null && UserPreference.ErrorFilter != null)
+            bool errFilterFound = false;
+
+            if (UserPreference != null && string.IsNullOrEmpty(UserPreference.ErrorFilter))
             {
                 string[] filters = UserPreference.ErrorFilter.Split(new char[] { ';' });
                 for (int i = 0; i < filters.Length; i++)
                 {
-                    if (filters[i] != string.Empty && filters[i] != null && log.Text.ToLower().Contains(filters[i].ToLower()))
+                    if (!string.IsNullOrEmpty(filters[i]) && log.Text.ToLower().Contains(filters[i].ToLower()))
                     {
-                        found = true;
+                        errFilterFound = true;
+                        break;
+                    }
+                }
+            }
+
+            bool msgAllowFound = false;
+            if (UserPreference != null && string.IsNullOrEmpty(UserPreference.LogAllowDuplicated))
+            {
+                string[] filters = UserPreference.LogAllowDuplicated.Split(new char[] { ';' });
+                for (int i = 0; i < filters.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(filters[i]) && log.Text.ToLower().Contains(filters[i].ToLower()))
+                    {
+                        msgAllowFound = true;
                         break;
                     }
                 }
             }
 
             bool isAdded = false;
+            bool duplicatedFound = false;
             lock (minorLogLock)
             {
-                Log l = MinorLogList.FirstOrDefault(x => x.Source == log.Source);
-                if (l != null && l.Text == log.Text)
+                if (!msgAllowFound)
                 {
-                    //l.Time = log.Time;
-                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    // in case of duplicated found, only time will be changed, no item will be added
+                    Log l = MinorLogList.FirstOrDefault(x => x.Source == log.Source);
+                    if (l != null && l.Text == log.Text && !OrderManager.MainWin.MinorLogPause)
                     {
-                        MinorLogList.Remove(l);
-                        MinorLogList.Insert(0, log);
-                    });
-                    found = true;
-                }
+                        //l.Time = log.Time;
+                        Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
+                        {
+                            lock (minorLogLock)
+                            {
+                                MinorLogList.Remove(l);
+                                MinorLogList.Insert(0, log);
+                            }
+                        });
+                        duplicatedFound = true;
+                    }
+                }                
 
-                if (!OrderManager.MainWin.MinorLogPause && !found)
-                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                if (!OrderManager.MainWin.MinorLogPause && !duplicatedFound)
+                {
+                    Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
                     {
-                        MinorLogList.Insert(0, log);
-                        isAdded = true;
+                        lock (minorLogLock)
+                        {
+                            MinorLogList.Insert(0, log);                            
+                        }
                     });
+                    isAdded = true;
+                }
+                    
             }            
 
             if (isAdded && File.Exists(minorlogfile))
             {
                 try
                 {
-                    lock (minorLogLock)
+                    lock (minorLogFileLock)
                     {
                         using (var sw = new StreamWriter(minorlogfile, true))
                         {

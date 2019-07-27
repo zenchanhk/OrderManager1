@@ -69,6 +69,7 @@
     <local:ObjectToVisConverter x:Key="ObjectToVisConverter"/>
     <local:ObjectToRevVisConverter x:Key="ObjectToRevVisConverter"/>
     <local:StoplossComboToVisConverter x:Key="StoplossComboToVisConverter" />
+    <local:StoplossComboToMaxConverter x:Key="StoplossComboToMaxConverter" />
     <local:ATAflToNameConverter x:Key="ATAflToNameConverter" />
     <local:SelectedItemToFocusableConverter x:Key="SelectedItemToFocusableConverter"/>
     <local:AccountStatusToVisConverter x:Key="AccountStatusToVisConverter"/>

@@ -70,6 +70,13 @@ namespace AmiBroker.Controllers
             set { _UpdateField(ref _pAvailablePosition, value); }
         }
 
+        private string _pSide;
+        public string Side
+        {
+            get { return _pSide; }
+            set { _UpdateField(ref _pSide, value); }
+        }
+
         private Strategy _pSelectedItem;
         public Strategy SelectedItem
         {

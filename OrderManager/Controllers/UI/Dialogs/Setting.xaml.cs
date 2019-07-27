@@ -117,6 +117,20 @@ namespace AmiBroker.Controllers
             }
         }
 
+        private string _pLogAllowDuplicated = "signal generated";
+        public string LogAllowDuplicated
+        {
+            get { return _pLogAllowDuplicated; }
+            set
+            {
+                if (_pLogAllowDuplicated != value)
+                {
+                    _pLogAllowDuplicated = value;
+                    OnPropertyChanged("LogAllowDuplicated");
+                }
+            }
+        }
+
         private bool _pKeepTradeSteps;
         public bool KeepTradeSteps
         {

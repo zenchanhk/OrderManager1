@@ -719,6 +719,7 @@ namespace AmiBroker.Controllers
     {
         public static bool IsTWSOpen()
         {
+            return true;
             List<string> appName = MainViewModel.Instance.UserPreference.IBAppName.Split(new char[] { ';' }).ToList();
             var wmiQueryString = "SELECT ProcessId, ExecutablePath, CommandLine FROM Win32_Process";
             using (var searcher = new ManagementObjectSearcher(wmiQueryString))

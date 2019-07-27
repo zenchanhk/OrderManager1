@@ -232,18 +232,42 @@ namespace AmiBroker.Controllers
         {
             int v = (int)value;
             int p = int.Parse((string)parameter);
-            if (v == 0)
+            if (v <= 2)
                 if (p == 0)
                     return Visibility.Visible;
                 else
                     return Visibility.Collapsed;
-            else if (v == 1)
+            else if (v == 3)
                 if (p == 1)
                     return Visibility.Visible;
                 else
                     return Visibility.Collapsed;
             else
                 return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class StoplossComboToMaxConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            int v = (int)value;
+            int result = 0;
+            switch(v)
+            {
+                case 0:
+                case 1:
+                    result = 10000;
+                    break;
+                case 2:
+                    result = 100;
+                    break;
+            }
+            return result;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
