@@ -287,5 +287,30 @@ namespace AmiBroker.Controllers
 
             }
         }
+
+        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            MenuItem mnu = sender as MenuItem;
+            if (mnu != null)
+            {
+                ItemsControl control = ((ContextMenu)mnu.Parent).PlacementTarget as ItemsControl;
+                ExpandTreeView(control);
+            }
+                
+        }
+
+        private static void ExpandTreeView(ItemsControl control)
+        {
+            foreach (object o in control.Items)
+            {
+                TreeViewItem item = (TreeViewItem)control.ItemContainerGenerator.ContainerFromItem(o);
+                if (item != null)
+                {
+                    item.IsExpanded = true;
+                    ExpandTreeView(item);
+                }
+                
+            }
+        }
     }
 }

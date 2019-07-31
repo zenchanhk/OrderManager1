@@ -1122,6 +1122,7 @@ namespace AmiBroker.OrderManager
                     bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;
                     List<int> ids = new List<int>();
                     List<int> failedIds = new List<int>();
+                    
                     if (cond_point || cond_timeout)
                     {
                         if (activeOrderAction == OrderAction.Short || activeOrderAction == OrderAction.Buy)
@@ -1148,22 +1149,29 @@ namespace AmiBroker.OrderManager
                                 {
                                     ois.Remove(info);
                                     failedIds.Add(info.RealOrderId);
-                                }                                    
+                                    info.ModifiedAsMarketOrder = false; 
+                                }
                                 else
+                                {                                    
                                     ids.Add(info.RealOrderId);  // used for logging
+                                }                                    
                             }
                             if (ois.Count > 0)
                             {
-                                controller.ModifyOrder(ois);
-                                message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
-                                    cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
-                                    cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
-                                    + activeActionAfter[activeOrderAction].Points : "unknown reason",
-                                    string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                                bool success = await controller.ModifyAsMarketOrderAsync(ois);
+                                if (success)
+                                    message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                        cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
+                                        cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
+                                        + activeActionAfter[activeOrderAction].Points : "unknown reason",
+                                        string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                                else
+                                    message += string.Format("\nOrders [{0}] being modified as MarketOrder failed during modifying orders", 
+                                        string.Join(", ", ois.Select(x => x.RealOrderId).ToList()));
                             }
                             if (failedIds.Count > 0)
                             {
-                                message += string.Format("\nOrders [{0}] being modified as MarketOrder failed", string.Join(", ", failedIds));
+                                message += string.Format("\nOrders [{0}] being modified as MarketOrder failed during canceling orders", string.Join(", ", failedIds));
                             }
                         }
                     }
@@ -1848,44 +1856,57 @@ namespace AmiBroker.OrderManager
                         TimeZoneId = c.TimeZoneId;
                         PointValue = string.IsNullOrEmpty(c.Multiplier) ? 1 : float.Parse(c.Multiplier);
 
-                        if (c.TimeZoneId.Length <= 3)
+                        if (string.IsNullOrEmpty(c.TimeZoneId))
                         {
-                            Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == c.TimeZoneId);
-                            if (tz != null)
+                            MainViewModel.Instance.MinorLog(new Log
                             {
-                                TimeZone = tz;
-                            }
-                            else
-                            {
-                                MainViewModel.Instance.MinorLog(new Log
-                                {
-                                    Text = c.TimeZoneId + " not found",
-                                    Source = "SymbolInAction.FillInContractDetails",
-                                    Time = DateTime.Now
-                                });
-                            }
+                                Text = "Timezone is null",
+                                Source = "SymbolInAction.FillInContractDetails",
+                                Time = DateTime.Now
+                            });
                         }
                         else
                         {
-                            TimeZoneInfo tzi = TZConvert.GetTimeZoneInfo(c.TimeZoneId);
-                            Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == tzi.Id);
-                            if (tz == null)
+                            if (c.TimeZoneId.Length <= 3)
                             {
-                                Controllers.TimeZone tmp = new Controllers.TimeZone
+                                Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == c.TimeZoneId);
+                                if (tz != null)
                                 {
-                                    Id = tzi.Id,
-                                    Description = tzi.DisplayName,
-                                    UtcOffset = tzi.BaseUtcOffset
-                                };
-                                Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
+                                    TimeZone = tz;
+                                }
+                                else
                                 {
-                                    MainViewModel.Instance.TimeZones.Add(tmp);
-                                });
-                                TimeZone = tmp;
+                                    MainViewModel.Instance.MinorLog(new Log
+                                    {
+                                        Text = c.TimeZoneId + " not found",
+                                        Source = "SymbolInAction.FillInContractDetails",
+                                        Time = DateTime.Now
+                                    });
+                                }
                             }
                             else
-                                TimeZone = tz;
+                            {
+                                TimeZoneInfo tzi = TZConvert.GetTimeZoneInfo(c.TimeZoneId);
+                                Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == tzi.Id);
+                                if (tz == null)
+                                {
+                                    Controllers.TimeZone tmp = new Controllers.TimeZone
+                                    {
+                                        Id = tzi.Id,
+                                        Description = tzi.DisplayName,
+                                        UtcOffset = tzi.BaseUtcOffset
+                                    };
+                                    Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
+                                    {
+                                        MainViewModel.Instance.TimeZones.Add(tmp);
+                                    });
+                                    TimeZone = tmp;
+                                }
+                                else
+                                    TimeZone = tz;
+                            }
                         }
+                        
                     }
                 }
             }

@@ -1328,6 +1328,11 @@
                     </Style.Resources>                    
                 </Style>
             </TreeView.ItemContainerStyle>
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Expand All" Click="MenuItem_Click"/>
+                </ContextMenu>
+            </TreeView.ContextMenu>
             <TreeView.Resources>
                 <ContextMenu x:Key="tv_Menu">
                     <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"                            

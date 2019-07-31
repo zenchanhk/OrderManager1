@@ -51,6 +51,7 @@ namespace AmiBroker.Controllers
         public ICommand Export { get; set; } = new Export();
         public ICommand ClearListView { get; set; } = new ClearListView();
         public ICommand AssignStrategy { get; set; } = new AssignStrategy();
+        public ICommand ExpandAll { get; set; } = new ExpandAll();
         public ICommand Test { get; set; } = new Test();
     }
     public class Test: ICommand
@@ -292,6 +293,37 @@ namespace AmiBroker.Controllers
             }
         }
     }
+
+    public class ExpandAll : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object _tv)
+        {
+            TreeView tv = _tv as TreeView;            
+                ExpandTreeView(tv);
+        }
+
+        private static void ExpandTreeView(ItemsControl control)
+        {
+            foreach (object o in control.Items)
+            {
+                TreeViewItem item = (TreeViewItem)control.ItemContainerGenerator.ContainerFromItem(o);
+                item.IsExpanded = true;
+                ExpandTreeView(item);
+            }
+        }
+    }
+
     public class CancelEditTemplateOnSite : ICommand
     {
         public bool CanExecute(object parameter)

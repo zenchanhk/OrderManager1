@@ -117,7 +117,7 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private string _pLogAllowDuplicated = "signal generated";
+        private string _pLogAllowDuplicated = "signal generated;modified;triggered";
         public string LogAllowDuplicated
         {
             get { return _pLogAllowDuplicated; }

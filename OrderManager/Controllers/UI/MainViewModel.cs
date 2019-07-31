@@ -263,7 +263,11 @@ namespace AmiBroker.Controllers
                 else
                 {
                     symbol = new SymbolInAction(name, timeframe);
-                    SymbolInActions.Add(symbol);
+                    SymbolInAction tmp = symbol;
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    {
+                        SymbolInActions.Add(tmp);
+                    });
                     foreach (IController controller in Controllers)
                     {
                         if (controller.IsConnected)
@@ -309,7 +313,7 @@ namespace AmiBroker.Controllers
         }
         public void Log(Log log)
         {
-            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
             {
                 if (LogList.Count > 0 && log.Text == LogList[0].Text && log.Source == LogList[0].Source)
                     LogList[0].Time = log.Time;
@@ -343,7 +347,7 @@ namespace AmiBroker.Controllers
         {
             bool errFilterFound = false;
 
-            if (UserPreference != null && string.IsNullOrEmpty(UserPreference.ErrorFilter))
+            if (UserPreference != null && !string.IsNullOrEmpty(UserPreference.ErrorFilter))
             {
                 string[] filters = UserPreference.ErrorFilter.Split(new char[] { ';' });
                 for (int i = 0; i < filters.Length; i++)
@@ -351,13 +355,13 @@ namespace AmiBroker.Controllers
                     if (!string.IsNullOrEmpty(filters[i]) && log.Text.ToLower().Contains(filters[i].ToLower()))
                     {
                         errFilterFound = true;
-                        break;
+                        return;
                     }
                 }
             }
 
             bool msgAllowFound = false;
-            if (UserPreference != null && string.IsNullOrEmpty(UserPreference.LogAllowDuplicated))
+            if (UserPreference != null && !string.IsNullOrEmpty(UserPreference.LogAllowDuplicated))
             {
                 string[] filters = UserPreference.LogAllowDuplicated.Split(new char[] { ';' });
                 for (int i = 0; i < filters.Length; i++)
@@ -381,9 +385,9 @@ namespace AmiBroker.Controllers
                     if (l != null && l.Text == log.Text && !OrderManager.MainWin.MinorLogPause)
                     {
                         //l.Time = log.Time;
-                        Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
+                        Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                         {
-                            lock (minorLogLock)
+                            //lock (minorLogLock)
                             {
                                 MinorLogList.Remove(l);
                                 MinorLogList.Insert(0, log);
@@ -395,9 +399,9 @@ namespace AmiBroker.Controllers
 
                 if (!OrderManager.MainWin.MinorLogPause && !duplicatedFound)
                 {
-                    Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
-                        lock (minorLogLock)
+                        //lock (minorLogLock)
                         {
                             MinorLogList.Insert(0, log);                            
                         }
@@ -427,7 +431,7 @@ namespace AmiBroker.Controllers
         }
         public void AddMessage(Message msg)
         {
-            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).InvokeAsync(() =>
             {
                 MessageList.Insert(0, msg);
                 CreateLoggingFiles();

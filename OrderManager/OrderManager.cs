@@ -1809,10 +1809,7 @@ namespace AmiBroker.Controllers
             {
                 bool isAdded = false;
                 SymbolInAction symbol = null;
-                Dispatcher.FromThread(UIThread).Invoke(new System.Action(() =>
-                {
-                    isAdded = MainViewModel.Instance.AddSymbol(AFInfo.Name(), AFTimeFrame.Interval() / 60, out symbol);
-                }), DispatcherPriority.Background, null);
+                isAdded = MainViewModel.Instance.AddSymbol(AFInfo.Name(), AFTimeFrame.Interval() / 60, out symbol);
 
                 if (symbol != null)
                 {
