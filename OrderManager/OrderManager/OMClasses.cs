@@ -1079,8 +1079,8 @@ namespace AmiBroker.OrderManager
                 {
                     oi = orderInfos.Last();
                     bool isStopOT = BaseOrderTypeAccessor.IsStopOrder(oi.OrderType);
-                    bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice");
-                    if (!isStopOT && !isLmtOT) return;
+                    bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice") && oi.OrderType.Slippages.Count > 0;
+                    if (!isLmtOT) return;
 
                     if (activeActionAfter[activeOrderAction].IsTriggered == null)
                     {
@@ -1158,7 +1158,7 @@ namespace AmiBroker.OrderManager
                             }
                             if (ois.Count > 0)
                             {
-                                bool success = await controller.ModifyAsMarketOrderAsync(ois);
+                                bool success = controller.ModifyAsMarketOrder(ois);
                                 if (success)
                                     message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
                                         cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
@@ -1998,10 +1998,13 @@ namespace AmiBroker.OrderManager
         }
         public void RefreshScripts()
         {
-            foreach (var item in Scripts.ToArray())
+            Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
             {
-                Scripts.Remove(item);
-            }
+                foreach (var item in Scripts.ToArray())
+                {
+                    Scripts.Remove(item);
+                }
+            });
         }
 
         public void ClearAppliedControllers()

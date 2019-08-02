@@ -610,7 +610,7 @@ namespace AmiBroker.OrderManager
             Slippages.CollectionChanged += Slippages_CollectionChanged;
             OrderType = OrderType.Stop;
             RealPrices.Add("AuxPrice", 0);
-            RealPrices.Add("LmtPrice", 0);
+            //RealPrices.Add("LmtPrice", 0);
             //init();
         }
 
@@ -623,9 +623,16 @@ namespace AmiBroker.OrderManager
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             if (Slippages != null && Slippages.Count > 0)
+            {
                 OrderType = OrderType.StopLimit;
+                if (!RealPrices.ContainsKey("LmtPrice"))
+                    RealPrices.Add("LmtPrice", 0);
+            }
             else
+            {
                 OrderType = OrderType.Stop;
+                RealPrices.Remove("LmtPrice");
+            }
         }
     }
 
@@ -724,15 +731,22 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.TrailingStop;
             RealPrices.Add("TrailStopPrice", 0);
             RealPrices.Add("AuxPercent", 0);
-            RealPrices.Add("LmtPrice", 0);
+            //RealPrices.Add("LmtPrice", 0);
         }
 
         private void Slippages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             if (Slippages != null && Slippages.Count > 0)
-                OrderType = OrderType.TrailingStop;
+            {
+                OrderType = OrderType.StopLimit;
+                if (!RealPrices.ContainsKey("LmtPrice"))
+                    RealPrices.Add("LmtPrice", 0);
+            }
             else
-                OrderType = OrderType.TrailingStopLimit;
+            {
+                OrderType = OrderType.Stop;
+                RealPrices.Remove("LmtPrice");
+            }
         }
     }
 }

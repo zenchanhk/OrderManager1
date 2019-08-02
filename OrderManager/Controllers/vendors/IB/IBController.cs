@@ -235,7 +235,7 @@ namespace AmiBroker.Controllers
             Client.UpdatePortfolio += eh_UpdatePortfolio;
             //EventDispatcher.AccountSummary += eh_AccountSummary;
             Client.UpdateAccountValue += eh_AccountValue;
-
+            Client.ExecDetails += eh_ExecDetails;
             //Client.ConnectionStatus += eh_ConnectionStatus; 
         }
 
@@ -498,7 +498,7 @@ namespace AmiBroker.Controllers
             {
                 Member member = members[i];
                 string fieldName = "LmtPrice";
-                if (member.Name == fieldName)
+                if (member.Name == fieldName && orderType.Slippages.Count > 0)
                 {
                     string str = (string)accessor[orderType, fieldName];
                     if (string.IsNullOrEmpty(str)) continue;
@@ -674,7 +674,7 @@ namespace AmiBroker.Controllers
                 {
                     Member member = members[i];
                     string fieldName = "LmtPrice";
-                    if (member.Name == fieldName)
+                    if (member.Name == fieldName && orderType.Slippages.Count > 0)
                     {
                         string str = (string)accessor[orderType, fieldName];
                         if (string.IsNullOrEmpty(str)) continue;
@@ -841,7 +841,7 @@ namespace AmiBroker.Controllers
 
         // Modify incompleted order as Market Order
         private List<int> modifiedIds = new List<int>();
-        public async Task<bool> ModifyAsMarketOrderAsync(IEnumerable<OrderInfo> orderInfos)
+        public bool ModifyAsMarketOrder(IEnumerable<OrderInfo> orderInfos)
         {
             OrderInfo oi = null;
             List<int> ids = new List<int>();
@@ -875,29 +875,27 @@ namespace AmiBroker.Controllers
 
                 if (quantity == 0) return true;
 
+
                 Order order = oi.Order.CloneObject();
                 order.TotalQuantity = quantity;
                 order.OrderType = OrderType.Market;
-                OrderInfo info = null;
 
-                int id = await PlaceOrderAsync(oi.Contract, order);
-
-                if (id == -1)
+                int id = 0;
+                OrderLog olog = oi.OrderLog.CloneObject();
+                lock (idLock)
                 {
-                    MainVM.Log(new Log
-                    {
-                        Text = string.Format("Orders[{0}] being modified as MarketOrder has failed", string.Join(",", ids)),
-                        Source = "IBController.ModifyOrder(batch)",
-                        Time = DateTime.Now
-                    });
+                    id = OrderIdCount++;
 
-                    // revert 
-                    int failedId = FailedOrderId;
-                    OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, failedId, quantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
-                    info = new OrderInfo
+                    // update orderlog with new property values
+                    olog.OrderId = ConnParam.AccName + id;
+                    olog.RealOrderId = id;
+                    olog.OrderSentTime = DateTime.Now;
+                    olog.PosSize = quantity / oi.Strategy.Symbol.RoundLotSize;
+
+                    OrderInfo info = new OrderInfo
                     {
-                        RealOrderId = failedId,
-                        OrderId = ConnParam.AccName + failedId,
+                        RealOrderId = id,
+                        OrderId = olog.OrderId,
                         BatchNo = oi.BatchNo, // must same as being canceled order
                         Strategy = oi.Strategy,
                         Account = oi.Account,
@@ -905,39 +903,18 @@ namespace AmiBroker.Controllers
                         Contract = oi.Contract,
                         Order = order,
                         OrderType = new IBMarketOrder(),
+                        OrderLog = olog,
+                        IsAdjustedOrder = true
                     };
+
+                    OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
                     oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(info);
-                    MainVM.AddOrderInfo(ConnParam.AccName + failedId, info);
-                    SendCancledEvent(failedId, quantity);
-                    return false;
+                    MainVM.AddOrderInfo(olog.OrderId, info);
+
+                    Client.PlaceOrder(id, oi.Contract, order);
                 }
 
-                // update orderlog with new property values
-                OrderLog olog = oi.OrderLog.CloneObject();
-                olog.OrderId = ConnParam.AccName + id;
-                olog.RealOrderId = id;
-                olog.OrderSentTime = DateTime.Now;
-                olog.PosSize = quantity / oi.Strategy.Symbol.RoundLotSize;
 
-                info = new OrderInfo
-                {
-                    RealOrderId = id,
-                    OrderId = olog.OrderId,
-                    BatchNo = oi.BatchNo, // must same as being canceled order
-                    Strategy = oi.Strategy,
-                    Account = oi.Account,
-                    OrderAction = oi.OrderAction,
-                    Contract = oi.Contract,
-                    Order = order,
-                    OrderType = new IBMarketOrder(),
-                    OrderLog = olog,
-                    IsAdjustedOrder = true
-                };
-
-                OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
-                oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(info);
-                MainVM.AddOrderInfo(olog.OrderId, info);
-                
                 MainVM.Log(new Log
                 {
                     Text = string.Format("Orders[{0}] have been modified as MarketOrder[{1}]", string.Join(",", ids), id),
@@ -960,7 +937,7 @@ namespace AmiBroker.Controllers
         {
             try
             {
-                int id = 0;
+                int orderId = 0;
                 bool c = await IBTaskExt.FromEvent<EventArgs, bool>(
                 handler =>
                 {
@@ -969,10 +946,20 @@ namespace AmiBroker.Controllers
                     Client.Error += new EventHandler<ErrorEventArgs>(handler);
                 },
                 (reqId) => { lock (idLock) {
-                        int orderId = OrderIdCount++;
+                        orderId = OrderIdCount++;
                         order.OrderId = orderId;
+                        /*
+                        if (oi != null)
+                        {
+                            oi.OrderLog.RealOrderId = oi.RealOrderId = orderId;
+                            oi.OrderLog.OrderId = oi.OrderId = ConnParam.AccName + orderId;                            
+                            OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, orderId, order.TotalQuantity / oi.Strategy.Symbol.RoundLotSize, 0, 0, 0, 0, false, ids);
+                            oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(oi);
+                            MainVM.AddOrderInfo(oi.OrderLog.OrderId, oi);
+                        }
+                        */
                         Client.PlaceOrder(orderId, contract, order);
-                        return id;
+                        return orderId;
                     }
                 },
                 handler =>
@@ -983,7 +970,7 @@ namespace AmiBroker.Controllers
                 },
                 CancellationToken.None);
                 if (c)
-                    return id;
+                    return orderId;
                 else
                     return -1;
             }
@@ -1045,6 +1032,7 @@ namespace AmiBroker.Controllers
                     logs.Add(olog);
                     return logs;
                 }*/
+                //if (MainVM.OrderInfoList[])
 
 
                 string message = string.Empty;
@@ -1654,6 +1642,19 @@ namespace AmiBroker.Controllers
             });
 
         }
+
+        private void eh_ExecDetails(object sender, ExecDetailsEventArgs e)
+        {
+            OrderStatusEventArgs args = new OrderStatusEventArgs();
+            args.OrderId = e.OrderId;
+            args.AverageFillPrice = e.Execution.AvgPrice;
+            args.ClientId = e.Execution.ClientId;
+            args.Status = OrderStatus.Filled;
+            args.PermId = e.Execution.PermId;
+            args.Filled = e.Execution.CumQuantity;
+            args.Remaining = 0;
+            eh_OrderStatus(sender, args);
+        }
         private void eh_OrderStatus(object sender, OrderStatusEventArgs e)
         {
             // current filled/remaining
@@ -1976,6 +1977,44 @@ namespace AmiBroker.Controllers
                     MainVM.Portfolio.Insert(0, symbol);
                 }
             });
+
+            double long_pos = 0;
+            double short_pos = 0;
+            double pos = 0;
+            foreach (var item in MainVM.SymbolInActions)
+            {                
+                SymbolDefinition sd = item.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor);
+                if (sd != null && sd.Contract != null && sd.Contract.Symbol == e.Contract.Symbol
+                    && sd.Contract.Currency == e.Contract.Currency && sd.Contract.Expiry == sd.Contract.Expiry)
+                {
+                    pos = e.Position / item.RoundLotSize;
+                    foreach (var script in item.Scripts)
+                    {
+                        foreach (var acc in Accounts)
+                        {
+                            if (script.AccountStat.ContainsKey(acc.Name))
+                            {
+                                long_pos += script.AccountStat[acc.Name].LongPosition;
+                                short_pos += script.AccountStat[acc.Name].ShortPosition;
+                            }
+                        }
+                    }
+                }
+            }
+
+            string msg = string.Empty;
+            if ((pos > 0 && long_pos != pos) ||
+                (pos < 0 && short_pos != -pos) ||
+                (pos == 0 && (long_pos != 0 || short_pos != 0)))
+            {
+                MainVM.Log(new Log
+                {
+                    Text = string.Format("[{5}][{3}] Symbol[{4}] positions are not equal - Portfolio[{0}], Long Position[{1}], Short Position[{2}]",
+                    pos, long_pos, short_pos, e.AccountName, e.Contract.Symbol, DisplayName),
+                    Source = "UpdatePortfolio",
+                    Time = DateTime.Now
+                });
+            }
         }
         private void eh_Error(object sender, ErrorEventArgs e)
         {
@@ -2035,7 +2074,8 @@ namespace AmiBroker.Controllers
                         // deal with Duplicated Order Id
                         // deal with disappeared PreSubmitted orders
                         if (e.ErrorMsg.ToLower().Contains("duplicate order id") ||
-                            e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found"))
+                            e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found") ||
+                            e.ErrorMsg.ToLower().Contains("state: cancelled"))
                         {
                             // insert a makeup DisplayOrder into mainVM.Orders if not found
                             DisplayedOrder dOrder = null;
@@ -2343,6 +2383,17 @@ namespace AmiBroker.Controllers
     public static class IBTaskExt
     {
         private static int reqIdCount = -10000;
+
+        private static bool ErrorHandling(string err)
+        {
+            if (err.ToLower().Contains("order rejected") || err.ToLower().Contains("duplicate order id")
+                || err.ToLower().Contains("order canceled") || err.ToLower().Contains("needs to be cancelled is not found")
+                || err.ToLower().Contains("state: cancelled"))
+            {
+                return true;
+            }
+            return false;
+        }
         public static async Task<T> FromEvent<TEventArgs, T>(
             Action<EventHandler<TEventArgs>> registerEvent,
             Func<int, int> func,
@@ -2379,13 +2430,31 @@ namespace AmiBroker.Controllers
                         ex.Source = "IBTaskExt.FromEvent";
                         tcs.TrySetException(ex);
                     }
-                    if (parameter != null && (int)parameter == arg.TickerId)
+
+                    if (parameter != null && parameter.GetType() == typeof(int) && (int)parameter == arg.TickerId)
                     {
-                        tcs.TrySetResult((T)(object)false);
+                        if (!string.IsNullOrEmpty(arg.ErrorMsg))
+                        {
+                            if (!ErrorHandling(arg.ErrorMsg))
+                                tcs.TrySetResult((T)(object)false);
+                            else
+                                tcs.TrySetResult((T)(object)true);
+                        }
+                        else
+                            tcs.TrySetResult((T)(object)false);
                     }
-                    if (arg.TickerId == orderId)
+
+                    if (arg.TickerId == orderId && !string.IsNullOrEmpty(arg.ErrorMsg) && ErrorHandling(arg.ErrorMsg))
                     {
-                        tcs.TrySetResult((T)(object)false);
+                        if (!string.IsNullOrEmpty(arg.ErrorMsg))
+                        {
+                            if (ErrorHandling(arg.ErrorMsg))
+                                tcs.TrySetResult((T)(object)false);
+                            else
+                                tcs.TrySetResult((T)(object)true);
+                        }
+                        else
+                            tcs.TrySetResult((T)(object)false);
                     }
                 }
                 else if (args.GetType() == typeof(ContractDetailsEventArgs))
@@ -2427,7 +2496,7 @@ namespace AmiBroker.Controllers
                 {
                     OrderStatusEventArgs arg = args as OrderStatusEventArgs;
                     // for CancelOrder
-                    if (parameter != null && arg.OrderId == (int)parameter)
+                    if (parameter != null && parameter.GetType() == typeof(int) && arg.OrderId == (int)parameter)
                     {
                         if (arg.Status == OrderStatus.ApiCancelled || arg.Status == OrderStatus.Canceled)
                             tcs.TrySetResult((T)(object)true);

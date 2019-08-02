@@ -145,7 +145,7 @@ namespace AmiBroker.Controllers
         {
             return false;
         }
-        public async Task<bool> ModifyAsMarketOrderAsync(IEnumerable<OrderInfo> oi) { return true; }
+        public bool ModifyAsMarketOrder(IEnumerable<OrderInfo> oi) { return true; }
         public async Task<int> PlaceOrderAsync(Contract contract, Order order) { return 0; }
         public void CancelOrder(int orderId)
         {

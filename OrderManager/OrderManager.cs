@@ -584,7 +584,7 @@ namespace AmiBroker.Controllers
                             if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                                if (signal && strategy.OrderTypesDic[OrderAction.Buy].Count > 0 &&
+                                if (signal && strategy.OrderTypesDic.Count > 0 && strategy.OrderTypesDic[OrderAction.Buy].Count > 0 &&
                                     (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Buy][0])))
@@ -601,7 +601,7 @@ namespace AmiBroker.Controllers
 
 
                                 signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
-                                if (signal && strategy.OrderTypesDic[OrderAction.Sell].Count > 0 &&
+                                if (signal && strategy.OrderTypesDic.Count > 0 && strategy.OrderTypesDic[OrderAction.Sell].Count > 0 &&
                                     (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Sell][0])))
@@ -619,7 +619,7 @@ namespace AmiBroker.Controllers
                             if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
-                                if (signal && strategy.OrderTypesDic[OrderAction.Short].Count > 0 &&
+                                if (signal && strategy.OrderTypesDic.Count > 0 && strategy.OrderTypesDic[OrderAction.Short].Count > 0 &&
                                     (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Short][0])))
@@ -635,7 +635,7 @@ namespace AmiBroker.Controllers
                                 lastBarInfo[key].ShortSignal = signal;
 
                                 signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
-                                if (signal && strategy.OrderTypesDic[OrderAction.Cover].Count > 0 &&
+                                if (signal && strategy.OrderTypesDic.Count > 0 && strategy.OrderTypesDic[OrderAction.Cover].Count > 0 &&
                                     (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime
                                     || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged
                                     || BaseOrderTypeAccessor.IsStopOrder(strategy.OrderTypesDic[OrderAction.Cover][0])))

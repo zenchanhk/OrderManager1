@@ -1331,6 +1331,8 @@
             <TreeView.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="Expand All" Click="MenuItem_Click"/>
+                    <MenuItem Header="Enable All" Click="Enable_Click"/>
+                    <MenuItem Header="Disable All" Click="Disable_Click"/>
                 </ContextMenu>
             </TreeView.ContextMenu>
             <TreeView.Resources>

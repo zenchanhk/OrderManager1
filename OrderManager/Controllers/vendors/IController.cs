@@ -559,7 +559,7 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<bool> ModifyAsMarketOrderAsync(IEnumerable<OrderInfo> oi);  // Modify order as Market Order
+        bool ModifyAsMarketOrder(IEnumerable<OrderInfo> oi);  // Modify order as Market Order
 
         // modify prices and quantity
         bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType);

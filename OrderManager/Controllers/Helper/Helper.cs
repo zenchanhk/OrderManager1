@@ -181,6 +181,25 @@ namespace AmiBroker.Controllers
                 }
             }            
         }
+
+        // stop limit order must have slippages
+        public static bool IsStopLimitOrder(object obj)
+        {
+            string propName = "LmtPrice";
+            if (obj == null) return false;
+            lock (lockCache)
+            {
+                if (_queriedResult.ContainsKey(obj))
+                    return _queriedResult[obj];
+                else
+                {
+                    bool result = HasProperty(obj, propName) && HasProperty(obj, "Slippages");
+                    if (result) result = ((dynamic)obj).Slippages.Count > 0;
+                    _queriedResult.Add(obj, result);
+                    return result;
+                }
+            }
+        }
         public static bool HasProperty(object obj, string propName)
         {
             Type type = obj.GetType();

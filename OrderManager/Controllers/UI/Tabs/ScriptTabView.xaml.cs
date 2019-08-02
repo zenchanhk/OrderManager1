@@ -299,6 +299,48 @@ namespace AmiBroker.Controllers
                 
         }
 
+        private void Disable_Click(object sender, RoutedEventArgs e)
+        {
+            MenuItem mnu = sender as MenuItem;
+            if (mnu != null)
+            {
+                ItemsControl control = ((ContextMenu)mnu.Parent).PlacementTarget as ItemsControl;
+                EnableExecution(control, false);
+            }
+
+        }
+
+        private void Enable_Click(object sender, RoutedEventArgs e)
+        {
+            MenuItem mnu = sender as MenuItem;
+            if (mnu != null)
+            {
+                ItemsControl control = ((ContextMenu)mnu.Parent).PlacementTarget as ItemsControl;
+                EnableExecution(control);
+            }
+
+        }
+
+        private static void EnableExecution(ItemsControl control, bool enable = true)
+        {
+            foreach (object item in control.Items)
+            {
+                SymbolInAction symbol = item as SymbolInAction;
+                if (symbol != null)
+                {
+                    symbol.IsEnabled = enable;
+                    foreach (var script in symbol.Scripts)
+                    {
+                        script.IsEnabled = symbol.IsEnabled;
+                        foreach (var strategy in script.Strategies)
+                        {
+                            strategy.IsEnabled = symbol.IsEnabled;
+                        }
+                    }
+                }                
+            }
+        }
+
         private static void ExpandTreeView(ItemsControl control)
         {
             foreach (object o in control.Items)
