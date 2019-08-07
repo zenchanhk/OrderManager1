@@ -13,6 +13,7 @@ using System.Reflection;
 using Xceed.Wpf.AvalonDock;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using System.Threading;
 
 namespace AmiBroker.Controllers
 {
@@ -23,8 +24,9 @@ namespace AmiBroker.Controllers
         public ICommand RestoreLayout { get; set; } = new RestoreLayout();
         public ICommand ConnectAll { get; set; } = new ConnectAll();
         public ICommand DisconnectAll { get; set; } = new DisconnectAll();
-        public ICommand CloseAllOpenOrders { get; set; } = new CloseAllOpenOrders();
-        public ICommand CloseCurrentOpenOrders { get; set; } = new CloseCurrentOpenOrders();
+        public ICommand CloseAllOpenOrders { get; set; } = new CloseAllOpenOrdersInPortfolio();
+        public ICommand CloseAllSymbolpenOrders { get; set; } = new CloseAllSymbolOpenOrders();
+        public ICommand CloseCurrentOpenOrders { get; set; } = new CloseSelectedItemOpenOrders();
         public ICommand CloseSymbolOpenOrders { get; set; } = new CloseSymbolOpenOrders();
         public ICommand CancelPendingOrder { get; set; } = new CancelPendingOrder();
         public ICommand ShowConfigDialog { get; set; } = new DisplayConfigDialog();
@@ -1228,6 +1230,8 @@ namespace AmiBroker.Controllers
             }
         }
     }
+
+    // buy/sell in portfolio
     public class CloseSymbolOpenOrders : ICommand
     {
         public bool CanExecute(object parameter)
@@ -1291,9 +1295,18 @@ namespace AmiBroker.Controllers
 
                 string quan = symbol.Position.ToString();
                 DialogsHelper.ShowInputDialog("Input canceled quantity", ref quan);
-                double quantity = symbol.Position;
+                double quantity = 0; // symbol.Position;
                 if (!double.TryParse(quan, out quantity))
                     quantity = symbol.Position;
+
+                if (quantity == 0)
+                {
+                    MessageBox.Show("Close position failed due to incorrect input number.",
+                                          "Error",
+                                          MessageBoxButton.OK,
+                                          MessageBoxImage.Error);
+                    return;
+                }
 
                 if (symbolInAction.MaxOrderSize > 0)
                 {
@@ -1335,7 +1348,7 @@ namespace AmiBroker.Controllers
             }
         }
     }
-    public class CloseAllOpenOrders : ICommand
+    public class CloseAllOpenOrdersInPortfolio : ICommand
     {
         public bool CanExecute(object parameter)
         {
@@ -1395,7 +1408,41 @@ namespace AmiBroker.Controllers
             }
         }
     }
-    public class CloseCurrentOpenOrders : ICommand
+    public class CloseAllSymbolOpenOrders : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            MessageBoxResult msgResult = MessageBox.Show("Are you sure to close ALL open positions for ALL symbols?",
+                                          "Warning",
+                                          MessageBoxButton.YesNo,
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
+            if (msgResult == MessageBoxResult.No)
+            {
+                return;
+            }
+            else
+            {   
+                MainViewModel mainVM = MainViewModel.Instance;
+                foreach (SymbolInAction symbol in mainVM.SymbolInActions)
+                {
+                    symbol.CloseAllPositions();
+                    //Thread.Sleep(1000);
+                }                
+            }
+        }
+    }
+    public class CloseSelectedItemOpenOrders : ICommand
     {
         public bool CanExecute(object parameter)
         {
@@ -1447,6 +1494,7 @@ namespace AmiBroker.Controllers
                     foreach (SymbolInAction symbol in mainVM.SymbolInActions)
                     {
                         symbol.CloseAllPositions();
+                        //Thread.Sleep(1000);
                     }
                 }
             }

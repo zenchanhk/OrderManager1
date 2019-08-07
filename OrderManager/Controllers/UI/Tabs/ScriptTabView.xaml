@@ -222,6 +222,7 @@
                                 <xctk:PropertyDefinition TargetProperties="MinOrderSize" />
                                 <xctk:PropertyDefinition TargetProperties="MaxOrderSize" />
                                 <xctk:PropertyDefinition TargetProperties="DataErrorTolerance" />
+                                <xctk:PropertyDefinition TargetProperties="TradingHours" />
                             </xctk:PropertyGrid.PropertyDefinitions>
                         </xctk:PropertyGrid>
                     </StackPanel>
@@ -1333,6 +1334,8 @@
                     <MenuItem Header="Expand All" Click="MenuItem_Click"/>
                     <MenuItem Header="Enable All" Click="Enable_Click"/>
                     <MenuItem Header="Disable All" Click="Disable_Click"/>
+                    <MenuItem Header="Close All Positions" 
+                              Command="{Binding Data.Commands.CloseAllSymbolpenOrders, Source={StaticResource Proxy}}" />
                 </ContextMenu>
             </TreeView.ContextMenu>
             <TreeView.Resources>

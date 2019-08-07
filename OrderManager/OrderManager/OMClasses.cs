@@ -13,6 +13,7 @@ using System.Windows;
 using Krs.Ats.IBNet;
 using System.Collections.Concurrent;
 using TimeZoneConverter;
+using System.Threading;
 
 namespace AmiBroker.OrderManager
 {
@@ -1491,6 +1492,7 @@ namespace AmiBroker.OrderManager
             foreach (var s in Strategies)
             {
                 s.CloseAllPositions(closePositionAction);
+                Thread.Sleep(1000);
             }
         }
         public void RefreshStrategies()
@@ -1754,6 +1756,18 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pMinTick, value); }
 
         }
+
+        private string _pTradingHours = string.Empty;
+        [Category("Details")]
+        [DisplayName("Trading Hours")]
+        [ReadOnly(true)]
+        public string TradingHours
+        {
+            get { return _pTradingHours; }
+            set { _UpdateField(ref _pTradingHours, value); }
+
+        }
+
         private float _pDataErrorTolerance = (float)0.5; // in percentage
         [Category("Details")]
         [DisplayName("Data Error Tolerance")]
@@ -1837,6 +1851,7 @@ namespace AmiBroker.OrderManager
             foreach (var script in Scripts)
             {
                 script.CloseAllPositions();
+                //Thread.Sleep(1000);
             }
         }
         public async void FillInContractDetails(IController controller)
@@ -1853,6 +1868,7 @@ namespace AmiBroker.OrderManager
                         sd.Contract = c.Contract;
                         sd.TradingHours = c.TradingHours;
                         MinTick = c.MinTick;
+                        TradingHours = c.TradingHours;
                         TimeZoneId = c.TimeZoneId;
                         PointValue = string.IsNullOrEmpty(c.Multiplier) ? 1 : float.Parse(c.Multiplier);
 

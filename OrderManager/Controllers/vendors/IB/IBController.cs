@@ -1645,14 +1645,26 @@ namespace AmiBroker.Controllers
 
         private void eh_ExecDetails(object sender, ExecDetailsEventArgs e)
         {
+            OrderInfo oi = null;
+            int filled = 0;
+            int remaining = 0;
+            if (MainVM.OrderInfoList.ContainsKey(ConnParam.AccName + e.OrderId))
+            {
+                oi = MainVM.OrderInfoList[ConnParam.AccName + e.OrderId];
+                filled = e.Execution.Shares / oi.Strategy.Symbol.RoundLotSize;
+                remaining = oi.OrderLog.PosSize - filled;
+            }
+            else
+                return;
+
             OrderStatusEventArgs args = new OrderStatusEventArgs();
             args.OrderId = e.OrderId;
             args.AverageFillPrice = e.Execution.AvgPrice;
             args.ClientId = e.Execution.ClientId;
-            args.Status = OrderStatus.Filled;
+            args.Status = oi.OrderLog.PosSize == filled ? OrderStatus.Filled : OrderStatus.Submitted;
             args.PermId = e.Execution.PermId;
-            args.Filled = e.Execution.CumQuantity;
-            args.Remaining = 0;
+            args.Filled = e.Execution.Shares;
+            args.Remaining = remaining * oi.Strategy.Symbol.RoundLotSize;
             eh_OrderStatus(sender, args);
         }
         private void eh_OrderStatus(object sender, OrderStatusEventArgs e)
@@ -2067,7 +2079,8 @@ namespace AmiBroker.Controllers
                                 args.Status = OrderStatus.Filled;
                                 args.OrderId = e.TickerId;
                                 eh_OrderStatus(this, args);
-                                log = "A faked filled event has been sent\n" + e.ErrorMsg;
+                                log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
+                                    e.TickerId, e.ErrorMsg);
                             }
                         }
 
@@ -2103,7 +2116,8 @@ namespace AmiBroker.Controllers
                                     "orderId cannot be found";
                                 eh_OrderStatus(this, args);
                                 canceledByError = true;
-                                log = "A faked ApiCancelled event has been sent\n" + e.ErrorMsg;
+                                log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
+                                    e.TickerId ,e.ErrorMsg);
                             }
                         }
                     }
