@@ -77,8 +77,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private string _pConnectionStatus = "Disconnected";
-        public string ConnectionStatus
+        private BrokerConnectionStatus _pConnectionStatus = BrokerConnectionStatus.Disconnected;
+        public BrokerConnectionStatus ConnectionStatus
         {
             get { return _pConnectionStatus; }
             private set
@@ -129,10 +129,10 @@ namespace AmiBroker.Controllers
             ImageSize = new Size(16, 16);
             Group = DefaultGroupService.GetItemGroup("FT");
         }
-        public void Connect() { IsConnected = true; ConnectionStatus = "Connected"; }
+        public void Connect() { IsConnected = true; ConnectionStatus = BrokerConnectionStatus.Connected; }
         
         public Task ConnectAsync() { return new Task(() => { }); }
-        public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
+        public void Disconnect() { IsConnected = false; ConnectionStatus = BrokerConnectionStatus.Disconnected; }
         public void DisconnectByManual() { Disconnect(); }
         public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
             OrderAction orderAction, int batchNo, double? posSize = null, Contract security = null, 
@@ -146,7 +146,7 @@ namespace AmiBroker.Controllers
             return false;
         }
         public bool ModifyAsMarketOrder(IEnumerable<OrderInfo> oi) { return true; }
-        public async Task<int> PlaceOrderAsync(Contract contract, Order order) { return 0; }
+        public async Task<(int, OrderExecutionError)> PlaceOrderAsync(Contract contract, Order order) { return (0, OrderExecutionError.None); }
         public void CancelOrder(int orderId)
         {
 
@@ -155,9 +155,9 @@ namespace AmiBroker.Controllers
         {
             return false;
         }
-        public async Task<bool> CancelOrderAsync(int orderId)
+        public async Task<(bool, OrderExecutionError)> CancelOrderAsync(int orderId)
         {
-            return false;
+            return (false, OrderExecutionError.None);
         }
 
         public async Task<bool> CancelOrdersAsync(OrderInfo oi)

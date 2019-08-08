@@ -873,7 +873,9 @@ namespace AmiBroker.Controllers
                 {
                     bool result = true;
                     bool success = false;
+                    OrderExecutionError error = OrderExecutionError.None;
                     List<OrderInfo> ois = orderInfos.ToList();
+                    List<(int, OrderExecutionError)> failedCancels = new List<(int, OrderExecutionError)>();
                     int org_count = ois.Count;
                     foreach (var orderInfo in ois.ToList())
                     {
@@ -881,12 +883,22 @@ namespace AmiBroker.Controllers
                             orderInfo.Account.Controller.CancelOrder(orderInfo.RealOrderId);
                         else
                         {
-                            success = await orderInfo.Account.Controller.CancelOrderAsync(orderInfo.RealOrderId);
-                            if (!success) ois.Remove(orderInfo); 
+                            (success, error) = await orderInfo.Account.Controller.CancelOrderAsync(orderInfo.RealOrderId);
+                            if (!success)
+                            {
+                                failedCancels.Add((orderInfo.RealOrderId, error));
+                                ois.Remove(orderInfo);
+                            }
                         }
                     }
                     string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", ois.Select(x => x.RealOrderId).ToList())
                         + "] for strategy - " + strategy.Name + " being cancelled" + "\n";
+
+                    // adding cancellation failed Orders to message
+                    if (failedCancels.Count > 0)
+                        msg += "The following order cancellation failed:\n" + failedCancels.ToString();
+
+                    // logging
                     mainVM.Log(new Log
                     {
                         Time = DateTime.Now,

@@ -161,8 +161,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private string _pConnectionStatus = "Disconnected";
-        public string ConnectionStatus
+        private BrokerConnectionStatus _pConnectionStatus = BrokerConnectionStatus.Disconnected;
+        public BrokerConnectionStatus ConnectionStatus
         {
             get { return _pConnectionStatus; }
             private set
@@ -319,7 +319,7 @@ namespace AmiBroker.Controllers
                     //EventDispatcher.MarketRule += new EventHandler<MarketRuleEventArgs>(handler);
                     Client.Error += new EventHandler<ErrorEventArgs>(handler);
                 },
-                (reqId) => { Client.RequestContractDetails(reqId, contract); return 0; },
+                (reqId) => { Client.RequestContractDetails(reqId, contract); return (0, OrderStatus.None, OrderExecutionError.None); },
                 handler =>
                 {
                     Client.ContractDetails -= new EventHandler<ContractDetailsEventArgs>(handler);
@@ -933,11 +933,12 @@ namespace AmiBroker.Controllers
 
         }
 
-        public async Task<int> PlaceOrderAsync(Contract contract, Order order)
+        public async Task<(int, OrderExecutionError)> PlaceOrderAsync(Contract contract, Order order)
         {
             try
             {
                 int orderId = 0;
+                OrderExecutionError error = OrderExecutionError.None;
                 bool c = await IBTaskExt.FromEvent<EventArgs, bool>(
                 handler =>
                 {
@@ -958,8 +959,15 @@ namespace AmiBroker.Controllers
                             MainVM.AddOrderInfo(oi.OrderLog.OrderId, oi);
                         }
                         */
-                        Client.PlaceOrder(orderId, contract, order);
-                        return orderId;
+                        OrderExecutionError err1 = OrderExecutionError.None;
+                        if (ConnectionStatus == BrokerConnectionStatus.Disconnected)
+                            err1 = OrderExecutionError.NotConnected;
+                        if (ConnectionStatus == BrokerConnectionStatus.Error)
+                            err1 = OrderExecutionError.ConnectionError;
+
+                        if (err1  == OrderExecutionError.None)
+                            Client.PlaceOrder(orderId, contract, order);
+                        return (orderId, OrderStatus.None, err1);
                     }
                 },
                 handler =>
@@ -970,15 +978,15 @@ namespace AmiBroker.Controllers
                 },
                 CancellationToken.None);
                 if (c)
-                    return orderId;
+                    return (orderId, OrderExecutionError.None);
                 else
-                    return -1;
+                    return (-1, error);
             }
             catch (Exception ex)
             {
                 //throw ex;
                 GlobalExceptionHandler.HandleException("IBControler.CancelOrderAsync", ex);
-                return -1;
+                return (-1, OrderExecutionError.Exception);
             }
         }
         // modify the price to conform to minTick requirement
@@ -1033,6 +1041,13 @@ namespace AmiBroker.Controllers
                     return logs;
                 }*/
                 //if (MainVM.OrderInfoList[])
+                OrderLog orderLog = new OrderLog();
+                if (ConnectionStatus != BrokerConnectionStatus.Connected)
+                {                    
+                    orderLog.Error = string.Format("Connection error: {0}", ConnectionStatus.ToString());
+                    orderLog.OrderId = "-1";
+                    return new List<OrderLog> { orderLog };
+                }
 
 
                 string message = string.Empty;
@@ -1056,8 +1071,7 @@ namespace AmiBroker.Controllers
                     order.OutsideRth = strategy == null ? true : strategy.OutsideRTH;
                     Orders.Add(batchNo, order);
                 }
-
-                OrderLog orderLog = new OrderLog();
+                
                 orderLog.Error = message;
                 if (message != string.Empty && !errorSuppressed)
                 {
@@ -1397,30 +1411,45 @@ namespace AmiBroker.Controllers
                 Client.CancelOrder(orderId);
             }
         }
-        public async Task<bool> CancelOrderAsync(int orderId)
+        public async Task<(bool, OrderExecutionError)> CancelOrderAsync(int orderId)
         {
             try
             {
-                bool c = await IBTaskExt.FromEvent<EventArgs, bool>(
+                (bool c, OrderExecutionError error) = await IBTaskExt.FromEvent<EventArgs, (bool, OrderExecutionError)>(
                 handler =>
                 {
                     Client.OrderStatus += new EventHandler<OrderStatusEventArgs>(handler);
                     Client.Error += new EventHandler<ErrorEventArgs>(handler);
                 },
-                (reqId) => { lock (idLock) { Client.CancelOrder(orderId); return orderId; } },
+                (reqId) => { lock (idLock) {
+                        OrderInfo oi = null;
+                        if (MainVM.OrderInfoList.ContainsKey(ConnParam.AccName + orderId))
+                            oi = MainVM.OrderInfoList[ConnParam.AccName + orderId];
+
+                        OrderExecutionError err1 = OrderExecutionError.None;
+                        if (ConnectionStatus == BrokerConnectionStatus.Disconnected)
+                            err1 = OrderExecutionError.NotConnected;
+                        if (ConnectionStatus == BrokerConnectionStatus.Error)
+                            err1 = OrderExecutionError.ConnectionError;
+
+                        if (err1 == OrderExecutionError.None)
+                            Client.CancelOrder(orderId);
+                        return (orderId, oi != null ? oi.OrderStatus.Status : OrderStatus.None, err1);
+                    }
+                },
                 handler =>
                 {
                     Client.OrderStatus -= new EventHandler<OrderStatusEventArgs>(handler);
                     Client.Error -= new EventHandler<ErrorEventArgs>(handler);
                 },
                 CancellationToken.None, orderId);
-                return c;
+                return (c, error);
             }
             catch (Exception ex)
             {
                 //throw ex;
                 GlobalExceptionHandler.HandleException("IBControler.CancelOrderAsync", ex);
-                return false;
+                return (false, OrderExecutionError.Exception);
             }
         }
 
@@ -1520,7 +1549,7 @@ namespace AmiBroker.Controllers
             Client.Disconnect();
             disconnectByManual = true;
             if (!Client.Connected)
-                ConnectionStatus = "Disconnected";
+                ConnectionStatus = BrokerConnectionStatus.Disconnected;
         }
 
         public void Connect()
@@ -2028,6 +2057,21 @@ namespace AmiBroker.Controllers
                 });
             }
         }
+        private decimal GetAVgFilledPrice(OrderInfo oi)
+        {
+            decimal avgPrice = 0;
+            SymbolDefinition sd = oi.Strategy.Symbol.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor);
+            foreach (var item in MainVM.Portfolio)
+            {                
+                if (sd != null && sd.Contract != null && sd.Contract.Symbol == item.Symbol
+                    && sd.Contract.Currency == item.Currency)
+                {
+                    avgPrice = item.AvgCost;
+                    break;
+                }
+            }
+            return avgPrice;
+        }
         private void eh_Error(object sender, ErrorEventArgs e)
         {
             string msg = e.ErrorMsg;
@@ -2051,44 +2095,54 @@ namespace AmiBroker.Controllers
                     bool canceledByError = false;
                     if (!string.IsNullOrEmpty(e.ErrorMsg))
                     {
+                        OrderExecutionError error = IBErrorHandling.ErrorHandling(e.ErrorMsg);
                         // ignore future placed order error message
                         if (e.ErrorMsg.ToLower().Contains("exception") || e.ErrorMsg.ToLower().Contains("notconnected"))
                             AccountStatusOp.RevertActionStatus(strategyStat, scriptStat, strategy, oi.OrderAction, oi.BatchNo);
 
-                        // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)                        
-                        if (e.ErrorMsg.ToLower().Contains("order rejected"))
-                        {
-                            // only whole order got canceled
-                            if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
-                            {
-                                args.Filled = 0;
-                                args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
-                                args.Status = OrderStatus.ApiCancelled;
-                                args.OrderId = e.TickerId;
-                                args.WhyHeld = e.ErrorMsg.ToLower().Contains("insufficient") ? "canceled due to insufficient equity" : "the exchange is closed";
-                                eh_OrderStatus(this, args);
-                                canceledByError = true;
-                                log = "A faked ApiCancelled event has been sent\n" + e.ErrorMsg;
-                            }
+                        if (error == OrderExecutionError.StopPriceRevisionDisallowed)
+                            oi.StopPriceRevisionDisallowed = true;
 
-                            if (e.ErrorMsg.ToLower().Contains("cannot modify the filled order") ||
-                                e.ErrorMsg.ToLower().Contains("cannot cancel the filled order"))
-                            {
-                                args.Filled = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
-                                args.Remaining = 0;
-                                args.Status = OrderStatus.Filled;
-                                args.OrderId = e.TickerId;
-                                eh_OrderStatus(this, args);
-                                log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
-                                    e.TickerId, e.ErrorMsg);
-                            }
+                        // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)  
+                        //if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive)
+                        if (error == OrderExecutionError.InsufficientEquity || error == OrderExecutionError.ExchangeClosed)
+                        {
+                            args.Filled = 0;
+                            args.Remaining = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                            args.Status = OrderStatus.ApiCancelled;
+                            args.OrderId = e.TickerId;
+                            args.WhyHeld = error.ToString();
+                            eh_OrderStatus(this, args);
+                            canceledByError = true;
+                            log = "A faked ApiCancelled event has been sent\n" + e.ErrorMsg;
                         }
+
+                        /*if (e.ErrorMsg.ToLower().Contains("cannot modify the filled order") ||
+                            e.ErrorMsg.ToLower().Contains("cannot cancel the filled order") ||
+                            (e.ErrorMsg.ToLower().Contains("duplicate order id") && oi.OrderStatus != null))*/
+                        if (error == OrderExecutionError.CannotCancelFilledOrder || error == OrderExecutionError.CannotModifyFilledOrder
+                            || error == OrderExecutionError.AlreadyFilled
+                            || (error == OrderExecutionError.DuplicateOrderId && oi.OrderStatus != null))
+                        {
+                            args.Filled = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                            args.Remaining = 0;
+                            args.AverageFillPrice = GetAVgFilledPrice(oi);
+                            args.Status = OrderStatus.Filled;
+                            args.OrderId = e.TickerId;
+                            eh_OrderStatus(this, args);
+                            log = string.Format("OrderId[{0}] - A faked Filled event has been sent - AvgPrice[{2}].\n{1}",
+                                e.TickerId, e.ErrorMsg, args.AverageFillPrice);
+                        }
+                        
 
                         // deal with Duplicated Order Id
                         // deal with disappeared PreSubmitted orders
-                        if (e.ErrorMsg.ToLower().Contains("duplicate order id") ||
+                        /*if ((e.ErrorMsg.ToLower().Contains("duplicate order id") && oi.OrderStatus == null) ||
                             e.ErrorMsg.ToLower().Contains("needs to be cancelled is not found") ||
-                            e.ErrorMsg.ToLower().Contains("state: cancelled"))
+                            e.ErrorMsg.ToLower().Contains("state: cancelled"))*/
+                        if ((error == OrderExecutionError.DuplicateOrderId && oi.OrderStatus == null) ||
+                            error == OrderExecutionError.IdNotFound || error == OrderExecutionError.AlreadyCanceled ||
+                            error == OrderExecutionError.OrderSizeError)
                         {
                             // insert a makeup DisplayOrder into mainVM.Orders if not found
                             DisplayedOrder dOrder = null;
@@ -2111,9 +2165,7 @@ namespace AmiBroker.Controllers
                                     (int)oi.OrderStatus.Remaining * strategy.Symbol.RoundLotSize;
                                 args.Status = OrderStatus.ApiCancelled;
                                 args.OrderId = e.TickerId;
-                                args.WhyHeld = e.ErrorMsg.ToLower().Contains("duplicate order id") ?
-                                    "canceled due to duplicated order id (maybe insufficient equity)" :
-                                    "orderId cannot be found";
+                                args.WhyHeld = error.ToString();
                                 eh_OrderStatus(this, args);
                                 canceledByError = true;
                                 log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
@@ -2130,7 +2182,7 @@ namespace AmiBroker.Controllers
                             Text = e.ErrorCode + "-" + e.ErrorMsg + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
                             + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])"
                             + (canceledByError ? "\n" : ""),
-                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage
+                            Source = "OnError (" + oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage +")"
                         });
                     });
                 }
@@ -2142,7 +2194,8 @@ namespace AmiBroker.Controllers
                         {
                             Time = DateTime.Now,
                             Text = e.ErrorMsg + "(OrderId:" + oi.OrderId + ", error: account status not found)",
-                            Source = oi.Strategy != null ? oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage : "Source not found, may be issued mannually."
+                            Source = "OnError " + oi.Strategy != null ? " (" + oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage + ")"
+                                    : "Source not found, may be issued mannually."
                         });
                     });
                 }
@@ -2155,7 +2208,7 @@ namespace AmiBroker.Controllers
                         {
                             Time = DateTime.Now,
                             Text = log,
-                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage
+                            Source = "OnError (" + oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage + ")"
                         });
                     });
                 }
@@ -2169,7 +2222,7 @@ namespace AmiBroker.Controllers
                     {
                         Time = DateTime.Now,
                         Text = "(orderId not found)" + e.ErrorMsg,
-                        Source = e.TickerId.ToString()
+                        Source = "OnError (TickerId:" + e.TickerId.ToString() + ")"
                     });
                 });
             }
@@ -2177,16 +2230,16 @@ namespace AmiBroker.Controllers
                 || e.ErrorMsg.Contains("Connectivity between Trader Workstation and server is broken")
                 || (e.ErrorMsg.Contains("Connectivity between") && e.ErrorMsg.Contains("has been lost"))))
             {
-                ConnectionStatus = "Error";
+                ConnectionStatus = BrokerConnectionStatus.Error;
             }
             if (e.ErrorMsg != null && (e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored")
                 || (e.ErrorMsg.ToLower().Contains("connectivity") && e.ErrorMsg.ToLower().Contains("restore"))))
             {
-                ConnectionStatus = "Connected";
+                ConnectionStatus = BrokerConnectionStatus.Connected;
             }
             if (e.ErrorMsg != null && e.ErrorMsg.ToLower().Contains("data farm connection is ok"))
             {
-                ConnectionStatus = "Connected";
+                ConnectionStatus = BrokerConnectionStatus.Connected;
             }
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
@@ -2206,7 +2259,7 @@ namespace AmiBroker.Controllers
         }
         private void eh_ConnectionClosed(object sender, ConnectionClosedEventArgs e)
         {
-            ConnectionStatus = "Disconnected";
+            ConnectionStatus = BrokerConnectionStatus.Disconnected;
             if (!disconnectByManual)
             {
                 if (!SystemHelper.IsTWSOpen())
@@ -2342,7 +2395,7 @@ namespace AmiBroker.Controllers
         private async void AfterConnected(int id = -1)
         {
             _hub.Publish<IController>(this);
-            ConnectionStatus = "Connected";
+            ConnectionStatus = BrokerConnectionStatus.Connected;
             if (id == -1)
             {
                 id = await reqIdsAsync();
@@ -2394,29 +2447,63 @@ namespace AmiBroker.Controllers
         }
     }
 
+    public static class IBErrorHandling
+    {
+        public static OrderExecutionError ErrorHandling(string msg, int code = -1)
+        {
+            OrderExecutionError error = OrderExecutionError.None;
+            if (string.IsNullOrEmpty(msg)) return OrderExecutionError.EmptyErrorMsg;
+            // deal with insufficent buying power or the exchange is closed (limit order -> market order occurs during exchange closed)                        
+            
+            if (msg.ToLower().Contains("insufficient"))
+                error = OrderExecutionError.InsufficientEquity;
+            if (msg.ToLower().Contains("the exchange is closed"))
+                error = OrderExecutionError.ExchangeClosed;
+
+            if (msg.ToLower().Contains("cannot modify the filled order"))
+                error = OrderExecutionError.CannotModifyFilledOrder;
+            if (msg.ToLower().Contains("cannot cancel the filled order"))
+                error = OrderExecutionError.CannotCancelFilledOrder;
+            if (msg.ToLower().Contains("duplicate order id") || code == (int)OrderExecutionError.DuplicateOrderId)
+                error = OrderExecutionError.DuplicateOrderId;
+
+            if (msg.ToLower().Contains("stop price revision is disallowed"))
+                error = OrderExecutionError.StopPriceRevisionDisallowed;
+
+            if (msg.ToLower().Contains("needs to be cancelled is not found"))
+                error = OrderExecutionError.IdNotFound;
+            if (msg.ToLower().Contains("state: cancelled"))
+                error = OrderExecutionError.AlreadyCanceled;
+            if (msg.ToLower().Contains("state: pendingcancel"))
+                error = OrderExecutionError.PendingCancel;
+            if (msg.ToLower().Contains("state: filled"))
+                error = OrderExecutionError.AlreadyFilled;
+
+            if (msg.ToLower().Contains("order size cannot be zero"))
+                error = OrderExecutionError.OrderSizeError;
+
+            if (error == OrderExecutionError.None)
+                error = OrderExecutionError.Unknown;
+
+            return error;
+        }
+    }
+
     public static class IBTaskExt
     {
         private static int reqIdCount = -10000;
 
-        private static bool ErrorHandling(string err)
-        {
-            if (err.ToLower().Contains("order rejected") || err.ToLower().Contains("duplicate order id")
-                || err.ToLower().Contains("order canceled") || err.ToLower().Contains("needs to be cancelled is not found")
-                || err.ToLower().Contains("state: cancelled"))
-            {
-                return true;
-            }
-            return false;
-        }
         public static async Task<T> FromEvent<TEventArgs, T>(
             Action<EventHandler<TEventArgs>> registerEvent,
-            Func<int, int> func,
+            Func<int, (int, OrderStatus, OrderExecutionError)> func,
             Action<EventHandler<TEventArgs>> unregisterEvent,
             CancellationToken token,
             object parameter = null,
             int? timeout = null)
         {
             int orderId = -1;
+            OrderStatus prevOrderStatus = OrderStatus.None;
+            OrderExecutionError funcError = OrderExecutionError.None;   // Execution error returned by function, ie. ConnectionError
 
             int reqId = reqIdCount--;
             if (reqIdCount <= int.MinValue)
@@ -2444,31 +2531,73 @@ namespace AmiBroker.Controllers
                         ex.Source = "IBTaskExt.FromEvent";
                         tcs.TrySetException(ex);
                     }
-
+                    // for order cancellation
                     if (parameter != null && parameter.GetType() == typeof(int) && (int)parameter == arg.TickerId)
                     {
-                        if (!string.IsNullOrEmpty(arg.ErrorMsg))
-                        {
-                            if (!ErrorHandling(arg.ErrorMsg))
-                                tcs.TrySetResult((T)(object)false);
-                            else
-                                tcs.TrySetResult((T)(object)true);
-                        }
-                        else
-                            tcs.TrySetResult((T)(object)false);
-                    }
+                        bool? result = null;
+                        OrderExecutionError error = IBErrorHandling.ErrorHandling(arg.ErrorMsg);
 
-                    if (arg.TickerId == orderId && !string.IsNullOrEmpty(arg.ErrorMsg) && ErrorHandling(arg.ErrorMsg))
-                    {
-                        if (!string.IsNullOrEmpty(arg.ErrorMsg))
-                        {
-                            if (ErrorHandling(arg.ErrorMsg))
-                                tcs.TrySetResult((T)(object)false);
-                            else
-                                tcs.TrySetResult((T)(object)true);
-                        }
+                        if (error == OrderExecutionError.AlreadyCanceled ||
+                        error == OrderExecutionError.ExchangeClosed ||
+                        error == OrderExecutionError.CannotCancelFilledOrder ||
+                        error == OrderExecutionError.ConnectionError ||
+                        error == OrderExecutionError.DuplicateOrderId ||
+                        error == OrderExecutionError.NotConnected ||
+                        error == OrderExecutionError.IdNotFound ||
+                        error == OrderExecutionError.OrderSizeError ||
+                        error == OrderExecutionError.AlreadyFilled ||
+                        error == OrderExecutionError.EmptyErrorMsg)
+                            result = false;
+
+                        // in case of order in the middle of cancellation
+                        else if (error == OrderExecutionError.PendingCancel && prevOrderStatus == OrderStatus.PendingCancel)
+                            result = false;
+                        // wait if cancellation in progress
+                        else if ((error == OrderExecutionError.PendingCancel && prevOrderStatus != OrderStatus.PendingCancel)
+                            || error == OrderExecutionError.StopPriceRevisionDisallowed)
+                            result = null;
                         else
-                            tcs.TrySetResult((T)(object)false);
+                        {
+                            result = true;
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Text = string.Format("Unknown error for order[{0}] cancellation[{2}] - {1}", arg.TickerId, arg.ErrorMsg, error.ToString()),
+                                Source = "CancelOrderAsync",
+                                Time = DateTime.Now
+                            });
+                        }
+                        
+                        if (result != null && !(bool)result)
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Text = string.Format("Order[{0}] canceled failed due to [{2}] {1}", arg.TickerId, arg.ErrorMsg, error. ToString()),
+                                Source = "CancelOrderAsync",
+                                Time = DateTime.Now
+                            });
+
+                        if (result != null)
+                            tcs.TrySetResult((T)(object)(result, error));
+                        else
+                            return;
+                    }
+                    // for order place
+                    if (arg.TickerId == orderId)
+                    {
+                        bool result = false;
+                        OrderExecutionError error = IBErrorHandling.ErrorHandling(arg.ErrorMsg);
+
+                        if (error == OrderExecutionError.Unknown)
+                            result = true;
+
+                        if (!result)
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Text = string.Format("Order[{0}] placement failed due to [{2}] {1}", arg.TickerId, arg.ErrorMsg, error.ToString()),
+                                Source = "PlaceOrderAsync",
+                                Time = DateTime.Now
+                            });
+
+                        tcs.TrySetResult((T)(object)(result, error));
                     }
                 }
                 else if (args.GetType() == typeof(ContractDetailsEventArgs))
@@ -2513,20 +2642,21 @@ namespace AmiBroker.Controllers
                     if (parameter != null && parameter.GetType() == typeof(int) && arg.OrderId == (int)parameter)
                     {
                         if (arg.Status == OrderStatus.ApiCancelled || arg.Status == OrderStatus.Canceled)
-                            tcs.TrySetResult((T)(object)true);
+                            tcs.TrySetResult((T)(object)(true, OrderExecutionError.None));
                         else
-                            tcs.TrySetResult((T)(object)false);
+                            tcs.TrySetResult((T)(object)(false, OrderExecutionError.None));
                     }
 
                     // for PlaceOrder
                     if (arg.OrderId == orderId)
                     {
                         if (arg.Status == OrderStatus.ApiCancelled || arg.Status == OrderStatus.Canceled)
-                            tcs.TrySetResult((T)(object)false);
+                            tcs.TrySetResult((T)(object)(false, OrderExecutionError.None));
                         else
-                            tcs.TrySetResult((T)(object)true);
+                            tcs.TrySetResult((T)(object)(true, OrderExecutionError.None));
                     }
                 }
+                // for PlaceOrder
                 else if (args.GetType() == typeof(OpenOrderEventArgs))
                 {
                     OpenOrderEventArgs arg = args as OpenOrderEventArgs;
@@ -2534,9 +2664,9 @@ namespace AmiBroker.Controllers
                     {
                         if (arg.OrderState.Status == OrderStatus.Inactive || arg.OrderState.Status == OrderStatus.Canceled
                         || arg.OrderState.Status == OrderStatus.ApiCancelled)
-                            tcs.TrySetResult((T)(object)false);
+                            tcs.TrySetResult((T)(object)(false, OrderExecutionError.None));
                         else
-                            tcs.TrySetResult((T)(object)true);
+                            tcs.TrySetResult((T)(object)(true, OrderExecutionError.None));
                     }
                 }
                 // get min price increment for each exchange
@@ -2556,8 +2686,11 @@ namespace AmiBroker.Controllers
             {
                 using (token.Register(() => tcs.SetCanceled()))
                 {
-                    orderId = func(reqId);
-                    return await tcs.Task;
+                    (orderId, prevOrderStatus, funcError) = func(reqId);
+                    if (funcError == OrderExecutionError.None)
+                        return await tcs.Task;
+                    else
+                        return (T)(object)(false, funcError);
                 }
             }
             finally
@@ -2566,6 +2699,7 @@ namespace AmiBroker.Controllers
             }
         }
 
+        // for requesting NextValidId from IB servers
         public static async Task<TEventArgs> FromEventToAsync<TEventArgs>(
             Action<EventHandler<TEventArgs>> registerEvent,
             System.Action action,

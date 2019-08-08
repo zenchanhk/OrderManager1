@@ -43,6 +43,37 @@ namespace AmiBroker.Controllers
         StoplossLongPartiallyFilled = 2097152,
         StoplossShortPartiallyFilled = 4194304,*/
     }
+
+    public enum OrderExecutionError
+    {
+        None = 0,
+        InsufficientEquity = 1,
+        ExchangeClosed = 2,
+        OrderCanceled = 3,
+        AlreadyCanceled = 4,
+        PendingCancel = 5,
+        IdNotFound = 6,
+        DuplicateOrderId = 103,
+        CannotModifyFilledOrder = 8,
+        CannotCancelFilledOrder = 9,
+        Unknown = 10,
+        NotConnected = 11,
+        ConnectionError = 12,
+        OrderSizeError = 13, // be zero or negative
+        EmptyErrorMsg = 14,
+        Exception = 15,
+        AlreadyFilled = 16,
+        StopPriceRevisionDisallowed = 17
+    }
+
+    public enum BrokerConnectionStatus
+    {
+        Connected = 1,
+        Connecting = 2,
+        Disconnected = 3,
+        Error = 4
+    }
+
     public class AccountStatusOp
     {
         //private readonly static List<string> PendingStatus = ["PreSubmitted"];
@@ -551,7 +582,7 @@ namespace AmiBroker.Controllers
         string VendorFullName { get; }
         ConnectionParam ConnParam { get; set; }
         bool IsConnected { get; }
-        string ConnectionStatus { get; }
+        BrokerConnectionStatus ConnectionStatus { get; }
         void Connect();
         void Disconnect();
 
@@ -568,8 +599,8 @@ namespace AmiBroker.Controllers
             bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
         bool CancelOrders(OrderInfo orderInfo);
-        Task<bool> CancelOrderAsync(int orderId);
+        Task<(bool, OrderExecutionError)> CancelOrderAsync(int orderId);
         Task<bool> CancelOrdersAsync(OrderInfo orderInfo);
-        Task<int> PlaceOrderAsync(Contract contract, Order order);
+        Task<(int, OrderExecutionError)> PlaceOrderAsync(Contract contract, Order order);
     }
 }

@@ -80,6 +80,7 @@ namespace AmiBroker.OrderManager
         public DateTime PlacedTime { get; set; }
         public bool ModifiedAsMarketOrder { get; set; } = false;    // if modified as Market Order
         public bool IsAdjustedOrder { get; set; } = false;  // indicator if modified from other type order
+        public bool StopPriceRevisionDisallowed { get; set; } = false; // not allowed to modify stop price since order being triggered
 
         public Contract Contract = null;
         public Order Order = null;
@@ -1079,6 +1080,8 @@ namespace AmiBroker.OrderManager
                 if (orderInfos != null)
                 {
                     oi = orderInfos.Last();
+                    if (oi.StopPriceRevisionDisallowed) return;
+
                     bool isStopOT = BaseOrderTypeAccessor.IsStopOrder(oi.OrderType);
                     bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice") && oi.OrderType.Slippages.Count > 0;
                     if (!isLmtOT) return;
@@ -1142,11 +1145,13 @@ namespace AmiBroker.OrderManager
                         else
                         {
                             List<OrderInfo> ois = orderInfos.ToList();
+                            bool cancel_success = false;
+                            OrderExecutionError error = OrderExecutionError.None;
                             foreach (var info in ois.ToList())
                             {
                                 info.ModifiedAsMarketOrder = true;
-                                bool success = await controller.CancelOrderAsync(info.RealOrderId);
-                                if (!success)
+                                (cancel_success, error) = await controller.CancelOrderAsync(info.RealOrderId);
+                                if (!cancel_success)
                                 {
                                     ois.Remove(info);
                                     failedIds.Add(info.RealOrderId);

@@ -1280,13 +1280,14 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {      
             System.Windows.Media.Color color = Util.ConvertStringToColor("#00FFFFFF"); 
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
                 color = Util.Color.Green;
-            else if (value.ToString().ToLower() == "connecting")
+            else if (status == BrokerConnectionStatus.Connecting)
                 color = Util.Color.Yellow;
-            else if (value.ToString().ToLower() == "error")
+            else if (status == BrokerConnectionStatus.Error)
                 color = Util.Color.Red;
-            else if (value.ToString().ToLower() == "disconnected")
+            else if (status == BrokerConnectionStatus.Disconnected)
                 color = Util.Color.Orange;
             return new SolidColorBrush(color);
         }
@@ -1301,13 +1302,14 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             System.Windows.Media.Color color = Util.ConvertStringToColor("#00FFFFFF");
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
                 color = Util.Color.Orange;
-            else if (value.ToString().ToLower() == "connecting")
+            else if (status == BrokerConnectionStatus.Connecting)
                 color = Util.Color.Yellow;
-            else if (value.ToString().ToLower() == "error")
+            else if (status == BrokerConnectionStatus.Error)
                 color = Util.Color.Red;
-            else if (value.ToString().ToLower() == "disconnected")
+            else if (status == BrokerConnectionStatus.Disconnected)
                 color = Util.Color.Green;
             return new SolidColorBrush(color);
         }
@@ -1322,11 +1324,12 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             string icon = "PowerPlugOff";
-            if (value.ToString().ToLower() == "connected" || value.ToString().ToLower() == "error")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected || status == BrokerConnectionStatus.Error)
                 icon = "PowerPlugOff";
-            else if (value.ToString().ToLower() == "connecting")
+            else if (status == BrokerConnectionStatus.Connecting)
                 icon = "PowerPlug";
-            else if (value.ToString().ToLower() == "disconnected")
+            else if (status == BrokerConnectionStatus.Disconnected)
                 icon = "PowerPlug";
             return icon;
         }
@@ -1341,11 +1344,12 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             string text = "Conenct";
-            if (value.ToString().ToLower() == "connected" || value.ToString().ToLower() == "error")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected || status == BrokerConnectionStatus.Error)
                 text = "Disconnect";
-            else if (value.ToString().ToLower() == "connecting")
+            else if (status == BrokerConnectionStatus.Connecting)
                 text = "Stop connecting";
-            else if (value.ToString().ToLower() == "disconnected")
+            else if (status == BrokerConnectionStatus.Disconnected)
                 text = "Conenct";
             return text;
         }
@@ -1360,7 +1364,8 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             bool isEnable = true;
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
                 isEnable = true;
             else 
                 isEnable = false;
@@ -1376,7 +1381,8 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             Visibility vis = Visibility.Visible;
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
                 vis = Visibility.Visible;
             else
                 vis = Visibility.Collapsed;
@@ -1392,7 +1398,8 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             Visibility vis = Visibility.Visible;
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
                 vis = Visibility.Collapsed;
             else
                 vis = Visibility.Visible;
@@ -1408,7 +1415,8 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             ImageSource img;
-            if (value.ToString().ToLower() == "connected")
+            BrokerConnectionStatus status = (BrokerConnectionStatus)value;
+            if (status == BrokerConnectionStatus.Connected)
             {                
                 img = Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.PowerPlugOff, new SolidColorBrush(Util.Color.Red));
             }
