@@ -1080,7 +1080,7 @@ namespace AmiBroker.OrderManager
                 if (orderInfos != null)
                 {
                     oi = orderInfos.Last();
-                    if (oi.StopPriceRevisionDisallowed) return;
+                    
 
                     bool isStopOT = BaseOrderTypeAccessor.IsStopOrder(oi.OrderType);
                     bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice") && oi.OrderType.Slippages.Count > 0;
@@ -1110,7 +1110,7 @@ namespace AmiBroker.OrderManager
                     string message = string.Empty;
                     decimal basePrice = oi.OrderLog.OrgPrice;
                     float diff = actionSide == OMActionSide.Buy ? curPrice - (float)basePrice : (float)basePrice - curPrice;
-
+                    DateTime checking_ts = DateTime.Now;
                     if (activeActionAfter[activeOrderAction].IsTriggered != null && (bool)activeActionAfter[activeOrderAction].IsTriggered)
                     {
                         activeActionAfter[activeOrderAction].Duration = Math.Round((DateTime.Now - (DateTime)activeActionAfter[activeOrderAction].StopBreakTime).TotalSeconds);
@@ -1122,10 +1122,12 @@ namespace AmiBroker.OrderManager
                         activeActionAfter[activeOrderAction].Points = 0;
                     }
 
+                    if (oi.StopPriceRevisionDisallowed) return;
+
                     bool cond_timeout = activeActionAfter[activeOrderAction].StopBreakTime != null ? activeActionAfter[activeOrderAction].Duration >= activeActionAfter[activeOrderAction].HoldDuration && activeActionAfter[activeOrderAction].HoldDuration > 0 : false;
                     bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;
                     List<int> ids = new List<int>();
-                    List<int> failedIds = new List<int>();
+                    //List<int> failedIds = new List<int>();
                     
                     if (cond_point || cond_timeout)
                     {
@@ -1140,12 +1142,13 @@ namespace AmiBroker.OrderManager
                                 cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
                                 cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise") 
                                 + activeActionAfter[activeOrderAction].Points : "unknown reason",
-                                string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                                string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);                            
                         }
                         else
                         {
                             List<OrderInfo> ois = orderInfos.ToList();
                             bool cancel_success = false;
+                            Dictionary<int ,OrderExecutionError> errors = new Dictionary<int, OrderExecutionError>();
                             OrderExecutionError error = OrderExecutionError.None;
                             foreach (var info in ois.ToList())
                             {
@@ -1154,7 +1157,8 @@ namespace AmiBroker.OrderManager
                                 if (!cancel_success)
                                 {
                                     ois.Remove(info);
-                                    failedIds.Add(info.RealOrderId);
+                                    //failedIds.Add(info.RealOrderId);
+                                    errors.Add(info.RealOrderId, error);;
                                     info.ModifiedAsMarketOrder = false; 
                                 }
                                 else
@@ -1175,11 +1179,23 @@ namespace AmiBroker.OrderManager
                                     message += string.Format("\nOrders [{0}] being modified as MarketOrder failed during modifying orders", 
                                         string.Join(", ", ois.Select(x => x.RealOrderId).ToList()));
                             }
-                            if (failedIds.Count > 0)
+                            if (errors.Count > 0)
                             {
-                                message += string.Format("\nOrders [{0}] being modified as MarketOrder failed during canceling orders", string.Join(", ", failedIds));
+                                message += string.Format("Orders being modified as MarketOrder failed during canceling orders");
+                                foreach (var item in errors)
+                                {
+                                    message += string.Format("\nOrderId[{0}], error: {1}", item.Key, item.Value.ToString());
+                                }
                             }
                         }
+                    }
+
+                    if (!string.IsNullOrEmpty(message) && (activeActionAfter[activeOrderAction].Duration == 0 || activeActionAfter[activeOrderAction].Points == 0))
+                    {
+                        message += string.Format("\nStopBreakTime:{0}, Now{6}, Duration {1}, HoldDuration {2}; DropTicks {3}, CurPrice {4}, BasePrice{5}",
+                            activeActionAfter[activeOrderAction].StopBreakTime, activeActionAfter[activeOrderAction].Duration,
+                            activeActionAfter[activeOrderAction].HoldDuration, activeActionAfter[activeOrderAction].DropTick,
+                            curPrice, basePrice, checking_ts.ToString("MM-dd HH:mm:ss.fff"));
                     }
 
                     // log message

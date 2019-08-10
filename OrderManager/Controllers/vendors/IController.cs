@@ -63,7 +63,8 @@ namespace AmiBroker.Controllers
         EmptyErrorMsg = 14,
         Exception = 15,
         AlreadyFilled = 16,
-        StopPriceRevisionDisallowed = 17
+        StopPriceRevisionDisallowed = 17,
+        Canceled = 18,
     }
 
     public enum BrokerConnectionStatus

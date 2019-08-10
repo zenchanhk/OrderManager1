@@ -45,6 +45,7 @@ namespace AmiBroker.Controllers
         public int PosSize { get; set; }
         public string Message { get; set; }
         public string Error { get; set; }
+        public bool Success { get; set; }
         public DateTime OrderSentTime { get; set; }
     }
     public class OrderPosSize
