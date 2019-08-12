@@ -1,0 +1,5 @@
+Date: 2019/08/13 
+Version: 0.94
+Improvement:
+Preventing some incorrect event being raised on a Canceled order
+An error (Cannot modify a filled order), which will cause a faked filled event being raised, was raised on a Canceled order.

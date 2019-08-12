@@ -1007,8 +1007,9 @@ namespace AmiBroker.Controllers
                 OrderStatusEventArgs args = new OrderStatusEventArgs();
                 args.Filled = 0;
                 args.Remaining = order.TotalQuantity;
-                args.Status = OrderStatus.Canceled;
+                args.Status = OrderStatus.ApiCancelled;
                 args.OrderId = orderId;
+                args.WhyHeld = OrderExecutionError.ConnectionError.ToString();
                 eh_OrderStatus(this, args);
 
                 orderLog.Error = string.Format("Connection error: {0}", ConnectionStatus.ToString());
@@ -1068,13 +1069,6 @@ namespace AmiBroker.Controllers
                 }*/
                 //if (MainVM.OrderInfoList[])
                 OrderLog orderLog = new OrderLog();
-                if (ConnectionStatus != BrokerConnectionStatus.Connected)
-                {                    
-                    orderLog.Error = string.Format("Connection error: {0}", ConnectionStatus.ToString());
-                    orderLog.OrderId = "-1";
-                    return new List<OrderLog> { orderLog };
-                }
-
 
                 string message = string.Empty;
                 Order order = new Order();
@@ -1738,7 +1732,8 @@ namespace AmiBroker.Controllers
             args.PermId = e.Execution.PermId;
             args.Filled = e.Execution.Shares;
             args.Remaining = remaining * oi.Strategy.Symbol.RoundLotSize;
-            eh_OrderStatus(sender, args);
+            args.WhyHeld = "Send by ExecDetails";
+            eh_OrderStatus(this, args);
         }
         private void eh_OrderStatus(object sender, OrderStatusEventArgs e)
         {
@@ -1761,11 +1756,25 @@ namespace AmiBroker.Controllers
 
             MainVM.MinorLog(new Log()
             {
-                Text = string.Format("Coming order status - Id: {0}, filled: {1}, remaining: {2}, status:{3}",
-                                                e.OrderId, filled, remaining, e.Status),
+                Text = string.Format("Coming order status - Id: {0}, filled: {1}, remaining: {2}, status:{3}, Source:{4}, WhyHeld:{5}",
+                                                e.OrderId, filled, remaining, e.Status, sender, e.WhyHeld),
                 Source = "IB API(order status event)",
                 Time = DateTime.Now
             });
+
+            if (oi != null && oi.OrderStatus != null && (oi.OrderStatus.Status == OrderStatus.Canceled || oi.OrderStatus.Status == OrderStatus.ApiCancelled) && e.Status == OrderStatus.Filled)
+            {
+                string errLog = string.Format("Error: a Filled event was raised on a canceled order, previous status[{0}]",
+                    oi.OrderStatus.Status);
+                MainVM.Log(new Log
+                {
+                    Text = errLog,
+                    Time = DateTime.Now,
+                    Source = string.Format("On OrderStatus Error (OrderId[{0}], [{0}])", oi.RealOrderId, oi.Strategy.Symbol.Name + oi.Strategy.Name)
+                });
+                return;
+            }
+
             DisplayedOrder dOrder = null;
             lock (MainViewModel.ordersLock)
             {
@@ -2165,19 +2174,32 @@ namespace AmiBroker.Controllers
                             e.ErrorMsg.ToLower().Contains("cannot cancel the filled order") ||
                             (e.ErrorMsg.ToLower().Contains("duplicate order id") && oi.OrderStatus != null))*/
                         if (error == OrderExecutionError.CannotCancelFilledOrder || error == OrderExecutionError.CannotModifyFilledOrder
-                            || error == OrderExecutionError.AlreadyFilled 
+                            || error == OrderExecutionError.AlreadyFilled
                             || (error == OrderExecutionError.DuplicateOrderId && oi.OrderStatus != null))
                         {
-                            args.Filled = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
-                            args.Remaining = 0;
-                            args.AverageFillPrice = GetAVgFilledPrice(oi);
-                            args.Status = OrderStatus.Filled;
-                            args.OrderId = e.TickerId;
-                            eh_OrderStatus(this, args);
-                            log = string.Format("OrderId[{0}] - A faked Filled event has been sent - AvgPrice[{2}].\n{1}",
-                                e.TickerId, e.ErrorMsg, args.AverageFillPrice);
+                            if (oi.OrderStatus != null && oi.OrderStatus.Status != OrderStatus.Canceled && oi.OrderStatus.Status != OrderStatus.ApiCancelled)
+                            {
+                                args.Filled = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                                args.Remaining = 0;
+                                args.AverageFillPrice = GetAVgFilledPrice(oi);
+                                args.Status = OrderStatus.Filled;
+                                args.OrderId = e.TickerId;
+                                args.WhyHeld = error.ToString();
+                                eh_OrderStatus(this, args);
+                                log = string.Format("OrderId[{0}] - A faked Filled event has been sent - AvgPrice[{2}].\n{1}",
+                                    e.TickerId, e.ErrorMsg, args.AverageFillPrice);
+                            }
+                            else
+                            {
+                                MainVM.Log(new Log
+                                {
+                                    Text = string.Format("Error: an incorrent event was raised on a canceled order, current error[{0}] [{1}]",
+                                    error.ToString(), e.ErrorMsg),
+                                    Time = DateTime.Now,
+                                    Source = string.Format("On Error [{0}] IB API Event", ConnParam.AccName),
+                                });
+                            }
                         }
-                        
 
                         // deal with Duplicated Order Id
                         // deal with disappeared PreSubmitted orders
