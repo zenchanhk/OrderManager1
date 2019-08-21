@@ -71,10 +71,10 @@ namespace AmiBroker.Controllers
         public void Execute(object parameter)
         {
             MainViewModel vm = MainViewModel.Instance;
-            IBController c = vm.Controllers.FirstOrDefault(x => x.ConnParam.AccName == "zenhao") as IBController;
+            IBController c = vm.Controllers.FirstOrDefault(x => x.DisplayName == "IB(1289(sim))") as IBController;
             if (c.IsConnected)
             {
-                c.test();
+                c.Test(67);
             }
         }
     }

@@ -243,6 +243,20 @@ namespace AmiBroker.Controllers
             }
         }
 
+        private AltersHandling _pAltersHandling = new AltersHandling();
+        public AltersHandling AltersHandling
+        {
+            get { return _pAltersHandling; }
+            set
+            {
+                if (_pAltersHandling != value)
+                {
+                    _pAltersHandling = value;
+                    OnPropertyChanged("AltersHandling");
+                }
+            }
+        }
+
         protected void OnPropertyChanged(string name)
         {
             PropertyChangedEventHandler handler = PropertyChanged;
@@ -252,6 +266,61 @@ namespace AmiBroker.Controllers
             }
         }
     }
+
+    public class AltersHandling : NotifyPropertyChangedBase
+    {
+
+        private bool _pConnectionStatus = true;
+        public bool ConnectionStatus
+        {
+            get { return _pConnectionStatus; }
+            set { _UpdateField(ref _pConnectionStatus, value); }
+        }
+
+        private bool _pOrderPlace;
+        public bool OrderPlace
+        {
+            get { return _pOrderPlace; }
+            set { _UpdateField(ref _pOrderPlace, value); }
+        }
+
+        private bool _pOrderCancel;
+        public bool OrderCancel
+        {
+            get { return _pOrderCancel; }
+            set { _UpdateField(ref _pOrderCancel, value); }
+        }
+
+        private bool _pOrderModify;
+        public bool OrderModify
+        {
+            get { return _pOrderModify; }
+            set { _UpdateField(ref _pOrderModify, value); }
+        }
+
+        private bool _pOrderFilled = true;
+        public bool OrderFilled
+        {
+            get { return _pOrderFilled; }
+            set { _UpdateField(ref _pOrderFilled, value); }
+        }
+
+        private bool _pDataSourceError;
+        public bool DataSourceError
+        {
+            get { return _pDataSourceError; }
+            set { _UpdateField(ref _pDataSourceError, value); }
+        }
+
+        private int _pNoDataErrorInterval = 120;
+        public int NoDataErrorInterval
+        {
+            get { return _pNoDataErrorInterval; }
+            set { _UpdateField(ref _pNoDataErrorInterval, value); }
+        }
+
+    }
+
     /// <summary>
     /// Interaction logic for Setting.xaml
     /// </summary>

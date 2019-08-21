@@ -27,8 +27,15 @@ namespace AmiBroker.Controllers
     public class TimeZone
     {
         public string Id { get; set; }
-        public TimeSpan UtcOffset { get; set; }
+        [JsonIgnore]
+        public TimeSpan UtcOffset { get
+            {
+                return TimeZoneInfo.GetUtcOffset(DateTime.Now);
+            }
+        }
         public string Description { get; set; }
+        [JsonIgnore]
+        public TimeZoneInfo TimeZoneInfo { get; set; }
         public override string ToString()
         {
             float offset = UtcOffset.Hours + UtcOffset.Minutes / 60;
@@ -202,8 +209,10 @@ namespace AmiBroker.Controllers
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for Interative Broker", OrderTypes = AllIBOrderTypes });
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for FuTu NiuNiu", OrderTypes = AllFTOrderTypes });
 
-            TimeZones.Add(new TimeZone { Id = "HKT", UtcOffset = new TimeSpan(8,0,0), Description = "Asia/Hong_Kong" });
-            TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
+            
+            TimeZones.Add(new TimeZone { Id = "HKT", TimeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time"), Description = "China Standar Time" });
+            TimeZones.Add(new TimeZone { Id = "EST", TimeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"), Description = "Eastern Standard Time (North America)" });
+            //TimeZones.Add(new TimeZone { Id = "CDT", TimeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Central Daylight Time"), Description = "Eastern Standard Time (North America)" });
 
             Weekdays.Add(new WeekDay { Value = 0, Name = "Sun" });
             Weekdays.Add(new WeekDay { Value = 1, Name = "Mon" });

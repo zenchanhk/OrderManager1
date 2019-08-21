@@ -3,3 +3,23 @@ Version: 0.94
 Improvement:
 Preventing some incorrect event being raised on a Canceled order
 An error (Cannot modify a filled order), which will cause a faked filled event being raised, was raised on a Canceled order.
+
+Can't modify a filled order will also be raised on a order being canceled
+
+Some filled event will be missed, when modification and cancellation operating on those orders, 
+OrderId 26307 that needs to be cancelled is not found. - cancelling
+Duplicate order id - Modifying
+
+Add IsInTradingHours to SymbolInAction; if outside trading hours, the signal will be ignored
+
+
+Modification adding ConnectionError handling
+
+Date: 2019/08/20
+Some orders will issue IdNotFoundOnCancel error continiously when Checking pending orders
+Adding Telegram Bot as way of sending notifications
+
+AlreadyFilled error when modifying an order as MarketOrder -- ?
+
+Date: 2019/08/21
+CancelOrders no initialized LastTime, so faked Filled Event sent on a Canceled order

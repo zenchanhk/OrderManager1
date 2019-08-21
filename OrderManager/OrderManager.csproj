@@ -120,6 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ABMethods.cs" />
+    <Compile Include="Controllers\Helper\AlterHandler.cs" />
     <Compile Include="Controllers\Helper\BcpBinding.cs" />
     <Compile Include="Controllers\Helper\BindableParameter.cs" />
     <Compile Include="Controllers\Helper\DialogsHelper.cs" />
@@ -329,7 +330,9 @@
   <ItemGroup>
     <Resource Include="Controllers\images\ib.png" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Resource Include="Revisions.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>**** Updating AmiBroker folders *****

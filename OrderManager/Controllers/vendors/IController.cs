@@ -52,7 +52,7 @@ namespace AmiBroker.Controllers
         OrderCanceled = 3,
         AlreadyCanceled = 4,
         PendingCancel = 5,
-        IdNotFound = 6,
+        IdNotFoundOnCancel = 6,
         DuplicateOrderId = 103,
         CannotModifyFilledOrder = 8,
         CannotCancelFilledOrder = 9,
@@ -65,6 +65,7 @@ namespace AmiBroker.Controllers
         AlreadyFilled = 16,
         StopPriceRevisionDisallowed = 17,
         Canceled = 18,
+        PriceNotConformed = 19,
     }
 
     public enum BrokerConnectionStatus
@@ -559,6 +560,13 @@ namespace AmiBroker.Controllers
         {
             return Name;
         }
+    }
+
+    public class CancelingOrder
+    {
+        public DateTime InitTime { get; set; } = DateTime.Now;  // first canceled time
+        public DateTime LastTime { get; set; } = DateTime.Now; // last canceled time
+        public int Times { get; set; } = 1;     // how many times has been called
     }
 
     /*

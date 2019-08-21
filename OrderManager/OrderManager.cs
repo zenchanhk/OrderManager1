@@ -283,7 +283,7 @@ namespace AmiBroker.Controllers
                 }                
             }
         }
-
+        
         // store PosSize for each BatchNo + AccountName = key
         public static Dictionary<string, BatchPosSize> BatchPosSize { get; } = new Dictionary<string, BatchPosSize>();
 
@@ -294,6 +294,7 @@ namespace AmiBroker.Controllers
         private static Dictionary<string, float> lastClose = new Dictionary<string, float>();
         // key: ticker name + strategy name + interval
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
+        private static Dictionary<string, DateTime> lastErrorSent = new Dictionary<string, DateTime>();
 
         private static object lockPS = new object();
         public static void ModifyPosSize(string key, int orderId, int newTotal)
@@ -367,7 +368,9 @@ namespace AmiBroker.Controllers
         {
             try
             {
+                //AlterHandler.SendMessage("send from IB");
                 float close = 0;
+                //OrderInfo oi = mainVM.OrderInfoList["1289(sim)2800"];                
                 if (mainWin == null) return;
                 if (mainVM != null)
                     mainVM.MinorLog(new Log
@@ -388,22 +391,36 @@ namespace AmiBroker.Controllers
                 }
                 DateTime logTime = ATFloat.ABDateTimeToDateTime(AFTools.LastValue(AFDate.DateTime()));
                 TimeSpan diff = DateTime.Now.Subtract(logTime);
-                if (diff.Days * 60 * 24 + diff.Hours * 60 + diff.Minutes > 5)
-                {
-                    mainVM.MinorLog(new Log
-                    {
-                        Time = DateTime.Now,
-                        Text = "No current data",
-                        Source = AFInfo.Name() + "." + scriptName
-                    });
-                    // add symbol if non-exist
-                    Initialize(scriptName);
-                    return;
-                }
-
+                
                 SymbolInAction symbol = Initialize(scriptName);
                 if (symbol == null || !symbol.IsEnabled) return;
 
+                if (!symbol.IsInTradingHours)
+                    return;
+                else
+                {
+                    if (mainVM.UserPreference.AltersHandling.ConnectionStatus &&
+                        ((diff.TotalSeconds > AFTimeFrame.Interval() * 1.2 && symbol.IsInTradingPeriods(logTime)) ||
+                        !symbol.IsInTradingPeriods(logTime)))
+                    {
+                        string txt = string.Format("No real time data for symbol[{0}]", AFInfo.Name());
+                        mainVM.MinorLog(new Log
+                        {
+                            Time = DateTime.Now,
+                            Text = txt,
+                            Source = AFInfo.Name() + "." + scriptName
+                        });
+                        string key = AFInfo.Name() + scriptName;
+                        if (!lastErrorSent.ContainsKey(key))
+                            lastErrorSent.Add(key, DateTime.Now);
+                        if ((DateTime.Now - lastErrorSent[key]).TotalSeconds > mainVM.UserPreference.AltersHandling.NoDataErrorInterval)
+                        {
+                            AlterHandler.SendMessage(txt);
+                            lastErrorSent[key] = DateTime.Now;
+                        }                        
+                        return;
+                    }                    
+                }
 
                 string symbolName = AFInfo.Name();
                 close = Close[BarCount - 1];
@@ -787,15 +804,20 @@ namespace AmiBroker.Controllers
                                             strategyStat.OrderInfos[orderAction].Add(MainViewModel.Instance.OrderInfoList[orderLog.OrderId]);
                                             //});
                                             // log order place details
+                                            string txt = "Symbol[" + script.Symbol.Name + "] " + orderAction.ToString() 
+                                                + " order sent (OrderId:" + orderLog.RealOrderId.ToString()
+                                                + ", PosSize:" + orderLog.PosSize
+                                                + (orderLog.OrgPrice > 0 ? ", OrgPrice:" + orderLog.OrgPrice.ToString() : "")
+                                                + (orderLog.LmtPrice > 0 ? ", LmtPrice:" + orderLog.LmtPrice.ToString() : "") + ") on account["
+                                                + account.DisplayName + "]";
                                             MainViewModel.Instance.Log(new Log
                                             {
                                                 Time = orderLog.OrderSentTime,
-                                                Text = orderAction.ToString() + " order sent (OrderId:" + orderLog.OrderId.ToString()
-                                                + ", PosSize:" + orderLog.PosSize
-                                                + (orderLog.OrgPrice > 0 ? ", OrgPrice:" + orderLog.OrgPrice.ToString() : "")
-                                                + (orderLog.LmtPrice > 0 ? ", LmtPrice:" + orderLog.LmtPrice.ToString() : "") + ")",
+                                                Text = txt,
                                                 Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderLog.Slippage
                                             });
+                                            if (mainVM.UserPreference.AltersHandling.OrderPlace)
+                                                AlterHandler.SendMessage(txt);
                                         }
                                         else
                                         {

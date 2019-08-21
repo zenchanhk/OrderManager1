@@ -226,7 +226,23 @@
                             </xctk:PropertyGrid.PropertyDefinitions>
                         </xctk:PropertyGrid>
                     </StackPanel>
-                    
+
+                    <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
+                        <TextBlock Text="Trading Hours" Margin="3" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="5">
+                        <ListView ItemsSource="{Binding TradingPeriods}" ItemContainerStyle="{StaticResource GridLineStyle}"
+                                  Height="180">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Start" Width="150"  DisplayMemberBinding="{Binding Start}" />
+                                    <GridViewColumn Header="End" Width="150"  DisplayMemberBinding="{Binding End}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </StackPanel>
+
                     <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
                         <TextBlock Text="Symbol Definition" Margin="3" FontWeight="Bold"/>
                     </StackPanel>
@@ -1610,6 +1626,9 @@
             <local:CachedContentControl DataContext="{Binding SelectedItem}" Contents="{Binding}" />
         </ScrollViewer>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Grid.Column="1" Grid.Row="1">
+            <Button Content="Test" HorizontalAlignment="Right" Margin="5" Padding="3" Width="80"
+                    Command="{Binding Commands.Test}"
+                    CommandParameter="{Binding SelectedItem}"/>
             <Button Content="Clear" HorizontalAlignment="Right" Margin="5" Padding="3" Width="80"
                     Command="{Binding Commands.ClearSettings}"
                     CommandParameter="{Binding SelectedItem}"/>

@@ -14,6 +14,7 @@ using Krs.Ats.IBNet;
 using System.Collections.Concurrent;
 using TimeZoneConverter;
 using System.Threading;
+using System.Globalization;
 
 namespace AmiBroker.OrderManager
 {
@@ -1120,6 +1121,7 @@ namespace AmiBroker.OrderManager
                     {
                         activeActionAfter[activeOrderAction].Duration = 0;
                         activeActionAfter[activeOrderAction].Points = 0;
+                        return;
                     }
 
                     if (oi.StopPriceRevisionDisallowed) return;
@@ -1170,11 +1172,15 @@ namespace AmiBroker.OrderManager
                             {
                                 bool success = controller.ModifyAsMarketOrder(ois);
                                 if (success)
+                                {
                                     message += string.Format("Batch Id[{0}] Order Id[{3}] Action[{4}] BasePrice[{5}] have modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
                                         cond_timeout ? "timeout-" + activeActionAfter[activeOrderAction].Duration :
                                         cond_point ? string.Format("{0} too fast-", actionSide == OMActionSide.Buy ? "drop" : "raise")
                                         + activeActionAfter[activeOrderAction].Points : "unknown reason",
                                         string.Join(", ", ids), oi.OrderAction.ToString(), basePrice);
+                                    if (MainViewModel.Instance.UserPreference.AltersHandling.OrderModify)
+                                        AlterHandler.SendMessage(message);
+                                }                                    
                                 else
                                     message += string.Format("\nOrders [{0}] being modified as MarketOrder failed during modifying orders", 
                                         string.Join(", ", ois.Select(x => x.RealOrderId).ToList()));
@@ -1190,7 +1196,8 @@ namespace AmiBroker.OrderManager
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(message) && (activeActionAfter[activeOrderAction].Duration == 0 || activeActionAfter[activeOrderAction].Points == 0))
+                    //if (!string.IsNullOrEmpty(message) && (activeActionAfter[activeOrderAction].Duration == 0 || activeActionAfter[activeOrderAction].Points == 0))
+                    if (!string.IsNullOrEmpty(message))
                     {
                         message += string.Format("\nStopBreakTime:{0}, Now{6}, Duration {1}, HoldDuration {2}; DropTicks {3}, CurPrice {4}, BasePrice{5}",
                             activeActionAfter[activeOrderAction].StopBreakTime, activeActionAfter[activeOrderAction].Duration,
@@ -1700,12 +1707,18 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pLocalSymbol, value); }
         }
 
-        private string _pTradingHours;
-        public string TradingHours
+        private bool _pIsDirty = false;
+        public bool IsDirty
         {
-            get { return _pTradingHours; }
-            set { _UpdateField(ref _pTradingHours, value); }
+            get { return _pIsDirty; }
+            set { _UpdateField(ref _pIsDirty, value); }
         }
+        
+    }
+    public class TradingPeriod
+    {
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
     }
     public class SymbolInAction : NotifyPropertyChangedBase
     {
@@ -1777,18 +1790,7 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pMinTick, value); }
 
         }
-
-        private string _pTradingHours = string.Empty;
-        [Category("Details")]
-        [DisplayName("Trading Hours")]
-        [ReadOnly(true)]
-        public string TradingHours
-        {
-            get { return _pTradingHours; }
-            set { _UpdateField(ref _pTradingHours, value); }
-
-        }
-
+        
         private float _pDataErrorTolerance = (float)0.5; // in percentage
         [Category("Details")]
         [DisplayName("Data Error Tolerance")]
@@ -1858,6 +1860,7 @@ namespace AmiBroker.OrderManager
         }
 
         private AmiBroker.Controllers.TimeZone _pTimeZone;
+        [JsonIgnore]
         public AmiBroker.Controllers.TimeZone TimeZone
         {
             get { return _pTimeZone; }
@@ -1867,6 +1870,85 @@ namespace AmiBroker.OrderManager
                 ChangeTimeZone(value);
             }
         }
+
+        private DateTime _pLastUpdateTs = DateTime.Now;
+        [JsonIgnore]
+        public DateTime LastUpdateTs
+        {
+            get { return _pLastUpdateTs; }
+            private set { _UpdateField(ref _pLastUpdateTs, value); }
+        }
+
+        private ObservableCollection<TradingPeriod> _pTradingPeriods = new ObservableCollection<TradingPeriod>();
+        [JsonIgnore]
+        public ObservableCollection<TradingPeriod> TradingPeriods
+        {
+            get { return _pTradingPeriods; }
+            private set { _UpdateField(ref _pTradingPeriods, value); }
+        }
+
+        private string _dtFormat = "yyyyMMdd:HHmm";
+        private string _pTradingHours;
+        [Category("Details")]
+        [DisplayName("Trading Hours")]
+        [ReadOnly(true)]
+        [JsonIgnore]
+        public string TradingHours
+        {
+            get { return _pTradingHours; }
+            set
+            {
+                TimeZoneInfo tzi = TimeZone.TimeZoneInfo;                
+                if (_pTradingHours != value)
+                {
+                    LastUpdateTs = DateTime.Now;
+                    string[] periods = value.Split(new char[] { ';' });
+                    foreach (var period in periods)
+                    {
+                        string[] dts = period.Split(new char[] { '-' });
+                        DateTime dt1;
+                        DateTime dt2;
+                        if (DateTime.TryParseExact(dts[0], _dtFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt1)
+                            && DateTime.TryParseExact(dts[1], _dtFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt2))
+                        {
+                            Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
+                            {
+                                TradingPeriods.Add(new TradingPeriod {
+                                    Start = TimeZoneInfo.ConvertTime(dt1, tzi, TimeZoneInfo.Local),
+                                    End = TimeZoneInfo.ConvertTime(dt2, tzi, TimeZoneInfo.Local)
+                                });
+                            });
+                        }
+                    }
+                }
+
+                _UpdateField(ref _pTradingHours, value);
+            }
+        }
+
+        public bool IsInTradingHours
+        {
+            get
+            {
+                return IsInTradingPeriods(DateTime.Now);
+            }
+        }
+
+        public bool IsInTradingPeriods(DateTime dt)
+        {
+            DateTime now = dt;
+            for (int i = 0; i < TradingPeriods.Count; i++)
+            {
+                TradingPeriod tp = TradingPeriods[i];
+                TradingPeriod tp1 = i < TradingPeriods.Count - 1 ? TradingPeriods[i + 1] : null;
+                if (now >= tp.Start && now <= tp.End)
+                    return true;
+                if (now > tp.End && ((tp1 != null && now < tp1.Start) || tp1 == null))
+                    return false;
+            }
+            return false;
+        }
+
         public void CloseAllPositions()
         {
             foreach (var script in Scripts)
@@ -1887,10 +1969,9 @@ namespace AmiBroker.OrderManager
                     if (c != null)
                     {
                         sd.Contract = c.Contract;
-                        sd.TradingHours = c.TradingHours;
                         MinTick = c.MinTick;
-                        TradingHours = c.TradingHours;
-                        TimeZoneId = c.TimeZoneId;
+                        TimeZoneId = c.TimeZoneId == "America/Belize" ? "America/Chicago" : c.TimeZoneId;
+                        //TimeZoneId = c.TimeZoneId;
                         PointValue = string.IsNullOrEmpty(c.Multiplier) ? 1 : float.Parse(c.Multiplier);
 
                         if (string.IsNullOrEmpty(c.TimeZoneId))
@@ -1923,7 +2004,7 @@ namespace AmiBroker.OrderManager
                             }
                             else
                             {
-                                TimeZoneInfo tzi = TZConvert.GetTimeZoneInfo(c.TimeZoneId);
+                                TimeZoneInfo tzi = TZConvert.GetTimeZoneInfo(TimeZoneId);
                                 Controllers.TimeZone tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == tzi.Id);
                                 if (tz == null)
                                 {
@@ -1931,7 +2012,7 @@ namespace AmiBroker.OrderManager
                                     {
                                         Id = tzi.Id,
                                         Description = tzi.DisplayName,
-                                        UtcOffset = tzi.BaseUtcOffset
+                                        TimeZoneInfo = tzi
                                     };
                                     Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
                                     {
@@ -1943,7 +2024,8 @@ namespace AmiBroker.OrderManager
                                     TimeZone = tz;
                             }
                         }
-                        
+
+                        TradingHours = c.TradingHours;
                     }
                 }
             }
@@ -2065,7 +2147,7 @@ namespace AmiBroker.OrderManager
                     if (tmp != null)
                         tmp.ContractId = item.ContractId;
                 }
-                TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
+                //TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
                 RoundLotSize = symbol.RoundLotSize;
                 MaxOrderSize = symbol.MaxOrderSize;
                 MinOrderSize = symbol.MinOrderSize;
