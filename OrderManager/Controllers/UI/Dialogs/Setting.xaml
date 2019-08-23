@@ -166,6 +166,7 @@
                 </TabItem>
                 <TabItem Name="ti_general" Visibility="Collapsed">
                     <GroupBox Header="General Settings">
+                        <ScrollViewer>
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="7,3,3,3" Background="LightGray">
                                 <TextBlock Text="Order Display" Margin="3" FontWeight="Bold"/>
@@ -183,10 +184,13 @@
                                 <TextBlock Text="Alters Handling" Margin="3" FontWeight="Bold"/>
                             </StackPanel>
                             <StackPanel Margin="5, 0">
-                                <CheckBox IsChecked="{Binding AltersHandling.ConnectionStatus}" Margin="5, 5, 5, 3" >
+                                <CheckBox IsChecked="{Binding AltersHandling.ConnectionStatus}" Margin="5" >
                                     <TextBlock Text="Connection Status" ToolTip="When connection status changes" />
                                 </CheckBox>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5, 0, 5, 5">
+                                    <CheckBox IsChecked="{Binding AltersHandling.DataSourceError}" Margin="5, 5, 5, 3" >
+                                        <TextBlock Text="No real-time data incoming" ToolTip="When no real time date incomes" />
+                                    </CheckBox>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5, 0, 5, 5">
                                     <TextBlock Text="Send no data error interval:"/>
                                     <ctrls:NumericUpDown Value="{Binding AltersHandling.NoDataErrorInterval, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Margin="3, 0" Width="40"
@@ -228,8 +232,9 @@
                                 <TextBox Name="msg_allow_list" Margin="0, 5, 0, 0" Height="70"
                                      TextWrapping="Wrap" AcceptsReturn="True"
                                      Text="{Binding LogAllowDuplicated}"/>
-                            </StackPanel>
+                            </StackPanel>                        
                         </StackPanel>
+                        </ScrollViewer>
                     </GroupBox>
                 </TabItem>
                 <TabItem Name="ti_connection" Visibility="Collapsed">

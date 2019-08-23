@@ -305,7 +305,7 @@ namespace AmiBroker.Controllers
             set { _UpdateField(ref _pOrderFilled, value); }
         }
 
-        private bool _pDataSourceError;
+        private bool _pDataSourceError = true;
         public bool DataSourceError
         {
             get { return _pDataSourceError; }

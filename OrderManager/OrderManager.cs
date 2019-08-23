@@ -18,6 +18,7 @@ using Xceed.Wpf.AvalonDock;
 using Newtonsoft.Json.Converters;
 using Krs.Ats.IBNet;
 using FastMember;
+using XDMessaging;
 
 namespace AmiBroker.Controllers
 {
@@ -181,6 +182,7 @@ namespace AmiBroker.Controllers
         public static MainWindow MainWin { get; private set; }
         private static MainViewModel mainVM;
         private static MainWindow mainWin;
+        private static IXDBroadcaster broadcaster = null;
         public static readonly Thread UIThread;
 
         static OrderManager()
@@ -229,6 +231,16 @@ namespace AmiBroker.Controllers
                 newWindowThread.Start();
                 // save for later use (update UI)
                 UIThread = newWindowThread;
+
+                // Create XDMessagingClient instance
+                XDMessagingClient client = new XDMessagingClient();
+
+                // Create broadcaster instance using HighPerformanceUI mode
+                broadcaster = client.Broadcasters
+                    .GetBroadcasterForMode(XDTransportMode.HighPerformanceUI);
+
+                // Send a shutdown message on the commands channel
+                //broadcaster.SendToChannel("commands", "shutdown");
             }
             catch (Exception ex)
             {
@@ -295,6 +307,7 @@ namespace AmiBroker.Controllers
         // key: ticker name + strategy name + interval
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
         private static Dictionary<string, DateTime> lastErrorSent = new Dictionary<string, DateTime>();
+        private static DateTime lastReconnectReqTime = DateTime.Now;
 
         private static object lockPS = new object();
         public static void ModifyPosSize(string key, int orderId, int newTotal)
@@ -391,7 +404,7 @@ namespace AmiBroker.Controllers
                 }
                 DateTime logTime = ATFloat.ABDateTimeToDateTime(AFTools.LastValue(AFDate.DateTime()));
                 TimeSpan diff = DateTime.Now.Subtract(logTime);
-                
+
                 SymbolInAction symbol = Initialize(scriptName);
                 if (symbol == null || !symbol.IsEnabled) return;
 
@@ -399,25 +412,36 @@ namespace AmiBroker.Controllers
                     return;
                 else
                 {
-                    if (mainVM.UserPreference.AltersHandling.ConnectionStatus &&
-                        ((diff.TotalSeconds > AFTimeFrame.Interval() * 1.2 && symbol.IsInTradingPeriods(logTime)) ||
+                    if (mainVM.UserPreference.AltersHandling.DataSourceError &&
+                        ((diff.TotalSeconds > AFTimeFrame.Interval() + 15 && symbol.IsInTradingPeriods(logTime)) ||
                         !symbol.IsInTradingPeriods(logTime)))
                     {
                         string txt = string.Format("No real time data for symbol[{0}]", AFInfo.Name());
+                        string key = AFInfo.Name() + scriptName;
+
+                        if (!lastErrorSent.ContainsKey(key))
+                            lastErrorSent.Add(key, DateTime.Now);
+
+                        // sending alter message to telegram
+                        if ((DateTime.Now - lastErrorSent[key]).TotalSeconds > mainVM.UserPreference.AltersHandling.NoDataErrorInterval)
+                        {
+                            AlterHandler.SendMessage(txt);                            
+                            lastErrorSent[key] = DateTime.Now;
+                        }
+
+                        // sending reconnect message to another process
+                        if (diff.TotalSeconds > AFTimeFrame.Interval() + 60 && (DateTime.Now - lastReconnectReqTime).TotalSeconds > 120)
+                        {
+                            broadcaster.SendToChannel("commands", "reconnect");
+                            lastReconnectReqTime = DateTime.Now;
+                            txt += "\nReconnect command has been sent";
+                        }
                         mainVM.MinorLog(new Log
                         {
                             Time = DateTime.Now,
                             Text = txt,
                             Source = AFInfo.Name() + "." + scriptName
                         });
-                        string key = AFInfo.Name() + scriptName;
-                        if (!lastErrorSent.ContainsKey(key))
-                            lastErrorSent.Add(key, DateTime.Now);
-                        if ((DateTime.Now - lastErrorSent[key]).TotalSeconds > mainVM.UserPreference.AltersHandling.NoDataErrorInterval)
-                        {
-                            AlterHandler.SendMessage(txt);
-                            lastErrorSent[key] = DateTime.Now;
-                        }                        
                         return;
                     }                    
                 }

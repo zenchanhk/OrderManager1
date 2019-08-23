@@ -1,20 +1,19 @@
-﻿using System;
+﻿using AmiBroker.OrderManager;
+using Easy.MessageHub;
+using FastMember;
+using Krs.Ats.IBNet;
+using Sdl.MultiSelectComboBox.API;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
-using Krs.Ats.IBNet;
-using Krs.Ats.IBNet.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using Sdl.MultiSelectComboBox.API;
-using Easy.MessageHub;
-using AmiBroker.OrderManager;
-using System.Reflection;
-using FastMember;
 
 namespace AmiBroker.Controllers
 {
@@ -94,8 +93,8 @@ namespace AmiBroker.Controllers
         public IBClient Client { get; } = new IBClient();
         public static Dictionary<string, IBContract> Contracts { get; } = new Dictionary<string, IBContract>();
         public static Dictionary<int, Order> Orders { get; } = new Dictionary<int, Order>();
-
         public static Dictionary<int, CancelingOrder> CancelingOrders { get; } = new Dictionary<int, CancelingOrder>();
+        private static Dictionary<string, Positions> PositionDiff { get; } = new Dictionary<string, Positions>();
 
         private bool _pDummy;
         public bool Dummy
@@ -862,14 +861,34 @@ namespace AmiBroker.Controllers
             }
         }
 
-        public void SendCancledEvent(int orderId, int quantity)
+        public void SendCancledEvent(int orderId, OrderInfo oi, string errMsg, int canceled_quan = 0, int filled_quan = 0)
         {
             OrderStatusEventArgs args = new OrderStatusEventArgs();
-            args.Remaining = quantity;
-            args.Filled = 0;
-            args.Status = OrderStatus.ApiCancelled;
-            args.OrderId = orderId;
-            eh_OrderStatus(this, args);
+
+            // insert a makeup DisplayOrder into mainVM.Orders if not found
+            DisplayedOrder dOrder = null;
+            lock (MainViewModel.ordersLock)
+            {
+                dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + orderId);
+            }
+            if (dOrder == null)
+            {
+                dOrder = MakeDisplayedOrder(orderId);
+                MainVM.InsertOrder(dOrder);
+            }
+
+            // issue an ApiCanceled event
+            if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive ||
+                oi.OrderStatus.Status == OrderStatus.PreSubmitted)
+            {
+                args.Filled = filled_quan == 0 ? (oi.OrderStatus == null ? 0 : (int)oi.OrderStatus.Filled) : filled_quan;
+                args.Remaining = canceled_quan == 0 ? (oi.OrderStatus == null ? oi.OrderLog.PosSize * oi.Strategy.Symbol.RoundLotSize :
+                    (int)oi.OrderStatus.Remaining * oi.Strategy.Symbol.RoundLotSize) : canceled_quan;
+                args.Status = OrderStatus.ApiCancelled;
+                args.OrderId = orderId;
+                args.WhyHeld = errMsg;
+                eh_OrderStatus(this, args);
+            }
         }
 
         public void Test(int orderId)
@@ -2223,31 +2242,41 @@ namespace AmiBroker.Controllers
             double long_pos = 0;
             double short_pos = 0;
             double pos = 0;
+            SymbolInAction symbolInAction = null;
+            int side = 0; // 1 means long, 2 means short
             foreach (var item in MainVM.SymbolInActions)
             {                
                 SymbolDefinition sd = item.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor);
                 if (sd != null && sd.Contract != null && sd.Contract.Symbol == e.Contract.Symbol
                     && sd.Contract.Currency == e.Contract.Currency && sd.Contract.Expiry == sd.Contract.Expiry)
                 {
+                    symbolInAction = item;
                     pos = e.Position / item.RoundLotSize;
                     foreach (var script in item.Scripts)
                     {
-                        foreach (var acc in Accounts)
+                        foreach (var strategy in script.Strategies)
                         {
-                            if (script.AccountStat.ContainsKey(acc.Name))
+                            AccountInfo info = strategy.LongAccounts.FirstOrDefault(x => x.Name == e.AccountName);
+                            if (info != null)
                             {
-                                long_pos += script.AccountStat[acc.Name].LongPosition;
-                                short_pos += script.AccountStat[acc.Name].ShortPosition;
-                            }
+                                long_pos += strategy.AccountStat[e.AccountName].LongPosition;
+                                side = 1;
+                            }                                
+
+                            info = strategy.ShortAccounts.FirstOrDefault(x => x.Name == e.AccountName);
+                            if (info != null)
+                            {
+                                short_pos += strategy.AccountStat[e.AccountName].ShortPosition;
+                                side = 2;
+                            }                                
                         }
                     }
                 }
             }
 
             string msg = string.Empty;
-            if ((pos > 0 && long_pos != pos) ||
-                (pos < 0 && short_pos != -pos) ||
-                (pos == 0 && (long_pos != 0 || short_pos != 0)))
+            if ((side == 1 && long_pos != pos) ||
+                (side == 2 && short_pos != -pos))
             {
                 MainVM.Log(new Log
                 {
@@ -2257,6 +2286,169 @@ namespace AmiBroker.Controllers
                     Time = DateTime.Now
                 });
             }
+
+            if (symbolInAction != null)
+            {
+                string key = symbolInAction.Name + e.AccountName;
+                if (!PositionDiff.ContainsKey(key))
+                    PositionDiff.Add(key, new Positions());
+
+                PositionDiff[key].Time = DateTime.Now;
+                if (side == 1)
+                {
+                    PositionDiff[key].LongPosition = long_pos;
+                    PositionDiff[key].PortfolioLP = pos;
+                }
+                else if (side == 2)
+                {
+                    PositionDiff[key].ShortPosition = short_pos;
+                    PositionDiff[key].PortfolioSP = -pos;
+                }
+            }            
+       }
+
+        private TypeSide GetTypeSide(OrderAction oa)
+        {
+            switch (oa)
+            {
+                case OrderAction.Buy:
+                case OrderAction.Sell:
+                case OrderAction.APSLong:
+                case OrderAction.StoplossLong:
+                case OrderAction.PreForceExitLong:
+                case OrderAction.FinalForceExitLong:
+                case OrderAction.CheckPendingOrderLong:
+                    return TypeSide.Long;
+                    break;
+                case OrderAction.Short:
+                case OrderAction.Cover:
+                case OrderAction.APSShort:
+                case OrderAction.StoplossShort:
+                case OrderAction.PreForceExitShort:
+                case OrderAction.FinalForceExitShort:
+                case OrderAction.CheckPendingOrderShort:
+                    return TypeSide.Short;
+                    break;
+            }
+            return TypeSide.Undefined;
+        }
+
+        // return a tuple, in which first element is the filled size, the second is the canceled size
+        private (int, int) CheckAgainstPortfolio(OrderInfo oi)
+        {
+            (int, int) result = (-1, -1);
+            int remaining = 0;
+            if (oi.OrderStatus != null)
+            {
+                remaining = (int)(oi.OrderStatus.Remaining / oi.Strategy.Symbol.RoundLotSize);
+                if (PositionDiff.ContainsKey(oi.Strategy.Symbol.Name + oi.Order.Account))
+                {
+                    Positions pos = PositionDiff[oi.Strategy.Symbol.Name + oi.Order.Account];
+
+                    // check if triggered
+                    // only triggered, filled number will be possible
+                    ObservableConcurrentDictionary<OrderAction, ActionAfterParam> activeActionAfter = GetTypeSide(oi.OrderAction) == TypeSide.Long ?
+                            oi.Strategy.LongActionAfter : oi.Strategy.ShortActionAfter;
+                    bool isTriggered = activeActionAfter[oi.OrderAction].IsTriggered == null ? true : (bool)activeActionAfter[oi.OrderAction].IsTriggered;
+
+                    if (GetTypeSide(oi.OrderAction) == TypeSide.Long)
+                    {
+                        if (oi.OrderAction == OrderAction.Buy)
+                        {
+                            if (pos.LongPosition == pos.PortfolioLP)
+                                result = (0, 0);
+                            else if (pos.LongPosition >= pos.PortfolioLP)
+                                result = (0, remaining);
+                            else if (pos.LongPosition < pos.PortfolioLP)
+                            {
+                                if (isTriggered)
+                                {
+                                    if (pos.PortfolioLP - pos.LongPosition >= remaining)
+                                        result = (remaining, 0);
+                                    else
+                                        result = ((int)(pos.PortfolioLP - pos.LongPosition), (int)(remaining - (pos.PortfolioLP - pos.LongPosition)));
+                                }
+                                else
+                                    result = (-2, -2);
+                            }
+                        }
+                        else
+                        {
+                            if (pos.LongPosition == pos.PortfolioLP)
+                                result = (0, 0);
+                            else if (pos.LongPosition <= pos.PortfolioLP)
+                                result = (0, remaining);
+                            else if (pos.LongPosition > pos.PortfolioLP)
+                            {
+                                if (isTriggered)
+                                {
+                                    if (pos.LongPosition - pos.PortfolioLP >= remaining)
+                                        result = (remaining, 0);
+                                    else
+                                        result = ((int)(pos.LongPosition - pos.PortfolioLP), (int)(remaining - (pos.LongPosition - pos.PortfolioLP)));
+                                }
+                                else
+                                    result = (-2, -2);
+                            }
+                        }
+                    }
+                    else if (GetTypeSide(oi.OrderAction) == TypeSide.Short)
+                    {
+                        if (oi.OrderAction == OrderAction.Short)
+                        {
+                            if (pos.ShortPosition == pos.PortfolioSP)
+                                result = (0, 0);
+                            else if (pos.ShortPosition > pos.PortfolioSP)
+                                result = (0, remaining);
+                            else if (pos.ShortPosition < pos.PortfolioSP)
+                            {
+                                if (isTriggered)
+                                {
+                                    if (pos.PortfolioSP - pos.ShortPosition >= remaining)
+                                        result = (remaining, 0);
+                                    else
+                                        result = ((int)(pos.PortfolioSP - pos.ShortPosition), (int)(remaining - (pos.PortfolioSP - pos.ShortPosition)));
+                                }
+                                else
+                                    result = (-2, -2);
+                            }
+                        }
+                        else
+                        {
+                            if (pos.ShortPosition == pos.PortfolioSP)
+                                result = (0, 0);
+                            else if (pos.ShortPosition < pos.PortfolioSP)
+                                result = (0, remaining);
+                            else if (pos.ShortPosition > pos.PortfolioSP)
+                            {
+                                if (isTriggered)
+                                {
+                                    if (pos.ShortPosition - pos.PortfolioSP >= remaining)
+                                        result = (remaining, 0);
+                                    else
+                                        result = ((int)(pos.ShortPosition - pos.PortfolioSP), (int)(remaining - (pos.ShortPosition - pos.PortfolioSP)));
+                                }
+                                else
+                                    result = (-2, -2);
+                            }
+                        }
+                    }
+                }
+                else
+                    result = (0, remaining);
+            }
+            else
+                result = (-1, -1);
+
+            Positions pos1 = PositionDiff[oi.Strategy.Symbol.Name + oi.Account.Name];
+            MainVM.Log(new Log
+            {
+                Text = string.Format("Position Diff: PfLP-{0}, LP-{1}, PfSP-{2}, SP-{3}; remaining-{4}; result:{5}",
+                 pos1.PortfolioLP, pos1.LongPosition, pos1.PortfolioSP, pos1.ShortPosition, remaining, result),
+                Source = "CheckAgainstPortfolio",
+                Time = DateTime.Now
+            });
+            return result;
         }
         private decimal GetAVgFilledPrice(OrderInfo oi)
         {
@@ -2304,6 +2496,31 @@ namespace AmiBroker.Controllers
                         if (error == OrderExecutionError.StopPriceRevisionDisallowed)
                             oi.StopPriceRevisionDisallowed = true;
                         
+                        // handling orders with missing callback signals
+                        if (CancelingOrders.ContainsKey(e.TickerId) && CancelingOrders[e.TickerId].Times > 2)
+                        {
+                            (int, int) result = CheckAgainstPortfolio(oi);
+                            if (result.Item1 > 0 && result.Item2 == 0)
+                            {
+                                args.Filled = oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize;
+                                args.Remaining = 0;
+                                args.AverageFillPrice = GetAVgFilledPrice(oi);
+                                args.Status = OrderStatus.Filled;
+                                args.OrderId = e.TickerId;
+                                args.WhyHeld = error.ToString();
+                                eh_OrderStatus(this, args);
+                                log = string.Format("OrderId[{0}] - A faked Filled event[CheckAgainstPortfolio] has been sent - AvgPrice[{2}].\n{1}",
+                                    e.TickerId, e.ErrorMsg, args.AverageFillPrice);
+                            }
+                            if (result.Item2 > 0)
+                            {
+                                SendCancledEvent(e.TickerId, oi, error.ToString(), result.Item2 * oi.Strategy.Symbol.RoundLotSize, result.Item1 * oi.Strategy.Symbol.RoundLotSize);
+                                log = string.Format("OrderId[{0} - A faked ApiCancelled[CheckAgainstPortfolio] event has been sent.\n{1}",
+                                    e.TickerId, e.ErrorMsg);
+                            }
+                        }
+
+                        /*
                         if (error == OrderExecutionError.IdNotFoundOnCancel && CancelingOrders.ContainsKey(e.TickerId)
                             && oi.OrderStatus == null)
                         {
@@ -2315,12 +2532,14 @@ namespace AmiBroker.Controllers
                             eh_OrderStatus(this, args);
                             canceledByError = true;
                             log = "A faked ApiCancelled event has been sent\n" + e.ErrorMsg;
-                        }
+                        }*/
 
                         if (error == OrderExecutionError.CannotCancelFilledOrder || error == OrderExecutionError.CannotModifyFilledOrder
                             || error == OrderExecutionError.IdNotFoundOnCancel || error == OrderExecutionError.AlreadyFilled
                             || (error == OrderExecutionError.DuplicateOrderId && oi.OrderStatus != null))
                         {
+                            
+                            // filled
                             if ((!CancelingOrders.ContainsKey(e.TickerId) || 
                                 (CancelingOrders.ContainsKey(e.TickerId) && (DateTime.Now - CancelingOrders[e.TickerId].LastTime).TotalSeconds > 3))
                                 && oi.OrderStatus != null && oi.OrderStatus.Status != OrderStatus.Canceled && oi.OrderStatus.Status != OrderStatus.ApiCancelled)
@@ -2366,33 +2585,9 @@ namespace AmiBroker.Controllers
                             (error == OrderExecutionError.IdNotFoundOnCancel && CancelingOrders.ContainsKey(e.TickerId)
                             && oi.OrderStatus == null))
                         {
-                            // insert a makeup DisplayOrder into mainVM.Orders if not found
-                            DisplayedOrder dOrder = null;
-                            lock (MainViewModel.ordersLock)
-                            {
-                                dOrder = MainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == ConnParam.AccName + e.TickerId);
-                            }
-                            if (dOrder == null)
-                            {
-                                dOrder = MakeDisplayedOrder(e.TickerId);
-                                MainVM.InsertOrder(dOrder);
-                            }
-
-                            // issue an ApiCanceled event
-                            if (oi.OrderStatus == null || oi.OrderStatus.Status == OrderStatus.Inactive ||
-                                oi.OrderStatus.Status == OrderStatus.PreSubmitted)
-                            {
-                                args.Filled = oi.OrderStatus == null ? 0 : (int)oi.OrderStatus.Filled;
-                                args.Remaining = oi.OrderStatus == null ? oi.OrderLog.PosSize * strategy.Symbol.RoundLotSize :
-                                    (int)oi.OrderStatus.Remaining * strategy.Symbol.RoundLotSize;
-                                args.Status = OrderStatus.ApiCancelled;
-                                args.OrderId = e.TickerId;
-                                args.WhyHeld = error.ToString();
-                                eh_OrderStatus(this, args);
-                                canceledByError = true;
-                                log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
-                                    e.TickerId ,e.ErrorMsg);
-                            }
+                            SendCancledEvent(e.TickerId, oi, error.ToString());
+                            log = string.Format("OrderId[{0} - A faked ApiCancelled event has been sent.\n{1}",
+                                e.TickerId, e.ErrorMsg);
                         }
                     }
 
@@ -2689,7 +2884,7 @@ namespace AmiBroker.Controllers
 
             if (msg.ToLower().Contains("can't modify a filled order") || msg.ToLower().Contains("cannot modify the filled order"))
                 error = OrderExecutionError.CannotModifyFilledOrder;
-            if (msg.ToLower().Contains("can't cancel a filled order"))
+            if (msg.ToLower().Contains("can't cancel a filled order") || msg.ToLower().Contains("cannot cancel the filled order"))
                 error = OrderExecutionError.CannotCancelFilledOrder;
             if (msg.ToLower().Contains("duplicate order id") || code == (int)OrderExecutionError.DuplicateOrderId)
                 error = OrderExecutionError.DuplicateOrderId;

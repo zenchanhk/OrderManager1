@@ -247,7 +247,9 @@ namespace AmiBroker.OrderManager
      * */
     public class ActionAfterParam : NotifyPropertyChangedBase
     {
-
+        // null for non-Stop Order
+        // true: reaches the stop price
+        // false; not reach the stop price
         private bool? _pIsTriggered = null;
         [JsonIgnore]
         public bool? IsTriggered
@@ -1086,25 +1088,25 @@ namespace AmiBroker.OrderManager
                     bool isStopOT = BaseOrderTypeAccessor.IsStopOrder(oi.OrderType);
                     bool isLmtOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "LmtPrice") && oi.OrderType.Slippages.Count > 0;
                     if (!isLmtOT) return;
-
-                    if (activeActionAfter[activeOrderAction].IsTriggered == null)
+                    
+                    if ((isStopOT && curPrice <= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Sell)
+                        || (isStopOT && curPrice >= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Buy)
+                        || !isStopOT)
                     {
-
-                        if ((isStopOT && curPrice <= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Sell)
-                            || (isStopOT && curPrice >= (float)oi.Order.AuxPrice && actionSide == OMActionSide.Buy)
-                            || !isStopOT)
+                        activeActionAfter[activeOrderAction].IsTriggered = true;
+                        MainViewModel.Instance.MinorLog(new Log
                         {
-                            activeActionAfter[activeOrderAction].IsTriggered = true;
-                            MainViewModel.Instance.MinorLog(new Log
-                            {
-                                Text = string.Format("Triggered: OrderId:{4}, Stop:{0}, Limit:{1}, Base:{2}, CurPrice:{3}",
-                                oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice, curPrice, oi.RealOrderId),
-                                Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
-                                Time = DateTime.Now,
-                            });
-                        }
-                        else
-                            return;
+                            Text = string.Format("Triggered: OrderId:{4}, Stop:{0}, Limit:{1}, Base:{2}, CurPrice:{3}",
+                            oi.Order.AuxPrice, oi.Order.LimitPrice, oi.OrderLog.OrgPrice, curPrice, oi.RealOrderId),
+                            Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
+                            Time = DateTime.Now,
+                        });
+                    }
+                    else
+                    {
+                        if (isStopOT)
+                            activeActionAfter[activeOrderAction].IsTriggered = false;
+                        return;
                     }
 
                     IController controller = baseStat.Account.Controller;
@@ -1124,7 +1126,7 @@ namespace AmiBroker.OrderManager
                         return;
                     }
 
-                    if (oi.StopPriceRevisionDisallowed) return;
+                    //if (oi.StopPriceRevisionDisallowed) return;
 
                     bool cond_timeout = activeActionAfter[activeOrderAction].StopBreakTime != null ? activeActionAfter[activeOrderAction].Duration >= activeActionAfter[activeOrderAction].HoldDuration && activeActionAfter[activeOrderAction].HoldDuration > 0 : false;
                     bool cond_point = diff > (float)(activeActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && activeActionAfter[activeOrderAction].DropTick > 0;

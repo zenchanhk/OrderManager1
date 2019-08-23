@@ -23,3 +23,6 @@ AlreadyFilled error when modifying an order as MarketOrder -- ?
 
 Date: 2019/08/21
 CancelOrders no initialized LastTime, so faked Filled Event sent on a Canceled order
+
+Date: 2019/08/23
+Adding XDMessage to broadcast a message to inform .NET IB Data source to reconnect.

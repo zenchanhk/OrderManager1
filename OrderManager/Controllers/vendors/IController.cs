@@ -569,6 +569,15 @@ namespace AmiBroker.Controllers
         public int Times { get; set; } = 1;     // how many times has been called
     }
 
+    public class Positions
+    {
+        public double LongPosition { get; set; }
+        public double ShortPosition { get; set; }
+        public double PortfolioLP { get; set; }
+        public double PortfolioSP { get; set; }
+        public DateTime Time { get; set; } = DateTime.Now;
+    }
+
     /*
     public class OrderIdCounter
     {
